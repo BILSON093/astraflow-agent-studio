@@ -1,0 +1,21 @@
+{
+  "name": "filesystem-safe",
+  "transport": "stdio",
+  "command": "npx @modelcontextprotocol/server-filesystem",
+  "permissions": [
+    {
+      "id": "fs.read",
+      "label": "Read files",
+      "level": "read",
+      "riskLevel": "low",
+      "description": "Read selected workspace files."
+    },
+    {
+      "id": "fs.write",
+      "label": "Write files",
+      "level": "write",
+      "riskLevel": "medium",
+      "description": "Create or edit files inside the workspace."
+    }
+  ]
+}

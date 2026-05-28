@@ -1,0 +1,25 @@
+{
+  "name": "coding-plan",
+  "version": "0.1.0",
+  "description": "Generate affected areas, implementation strategy, verification commands, and rollback notes for coding tasks.",
+  "entry": "SKILL.md",
+  "permissions": [
+    {
+      "id": "fs.read",
+      "label": "Read files",
+      "level": "read",
+      "riskLevel": "low",
+      "description": "Read selected workspace files."
+    },
+    {
+      "id": "fs.write",
+      "label": "Write files",
+      "level": "write",
+      "riskLevel": "medium",
+      "description": "Create or edit files inside the workspace."
+    }
+  ],
+  "scripts": {
+    "inspect": "node scripts/inspect-workspace.js"
+  }
+}

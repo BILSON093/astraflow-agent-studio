@@ -1,0 +1,118 @@
+# AstraFlow Agent Studio
+
+**AstraFlow Agent Studio（星流智能体工作台）** 是一个本地优先、跨平台、可视化的智能体桌面应用原型，目标是把通用 Agent 的任务规划、上下文编排、长期记忆、MCP/Skill 扩展、模型接入和 Token 成本治理放到一个产品化工作台里。
+
+技术栈固定为 **Tauri 2 + React + TypeScript + Vite**，支持 Windows 和 macOS 桌面端，也可以用 Vite 作为网页预览运行。
+
+## 核心能力
+
+- **Agent Canvas**：用可视化节点展示 Planner、Memory、Context、MCP Tool、Skill、Model Call、Result 的执行链路。
+- **任务入口**：支持一句话手写任务、工作区路径、文件上传、图片上传和多模态任务附件。
+- **Task Plan / Coding Plan**：任务开始前生成执行计划；代码类任务会额外生成影响范围、修改策略、验证命令和回滚建议。
+- **Token Plan**：预估上下文大小、模型策略、输入/输出 Token、软预算和硬预算。
+- **Token Monitor**：按任务、模型、Provider 聚合 Token 与费用，Provider 连通测试成功后也会写入用量记录。
+- **Memory System**：支持 Profile、Project、Episodic、Procedural 四类记忆，包含来源、时间、置信度、启用状态。
+- **Context Inspector**：展示实际进入模型的上下文；只有发生超预算裁剪时才展示“被裁剪内容”。
+- **MCP Center**：支持 stdio、HTTP/SSE 形态的 MCP Server 安装、启用、禁用和权限声明。
+- **Skill Store**：支持从语义一句话推荐并安装 Skill，Skill 通过 Runtime 权限层调用工具。
+- **Provider Hub**：统一配置 OpenAI-compatible、Anthropic、Gemini、DeepSeek、Qwen、Kimi、Zhipu、Ollama 等 Provider。
+- **Sandbox & Approval**：按低/中/高风险拆分权限，Shell、删除、密钥读取、部署、Git push 等高风险动作必须审批。
+
+## 目录结构
+
+```text
+.
+├── sidecar/                 # Node.js/TypeScript Agent Runtime 原型
+├── src/
+│   ├── components/          # 工作台 UI 组件
+│   ├── desktop/             # Tauri command 映射
+│   ├── domain/              # 核心类型定义
+│   ├── runtime/             # Planner、Context、Provider、Usage 等本地运行逻辑
+│   ├── store/               # Zustand 本地状态与持久化
+│   └── styles/              # 产品界面样式
+├── src-tauri/               # Tauri 2 桌面壳
+└── README.md
+```
+
+## 快速启动
+
+```bash
+npm install
+npm run dev
+```
+
+默认访问地址：
+
+```text
+http://127.0.0.1:5173/
+```
+
+## 启动桌面端
+
+首次运行桌面端需要安装 Rust：
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+然后启动 Tauri：
+
+```bash
+npm run tauri:dev
+```
+
+构建安装包：
+
+```bash
+npm run tauri:build
+```
+
+## 模型接入
+
+进入 **模型接入中心** 后可以添加或编辑 Provider：
+
+- 国内外 OpenAI-compatible API：填写 `Base URL`、模型名、价格和 API Key。
+- Anthropic：使用 `/v1/messages` 真实连通测试。
+- Gemini：使用 `generateContent` 真实连通测试。
+- Ollama：本地无需 API Key，可直接测试 `http://localhost:11434/v1`。
+
+API Key 只用于本次保存/测试流程，前端状态只保留脱敏标记。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
+
+## MCP 与 Skill
+
+MCP 和 Skill 都可以通过一句话安装入口创建配置：
+
+- MCP 安装会生成名称、传输方式、启动命令或 URL、权限和健康状态。
+- Skill 安装会生成 `skill.json` 风格的 Manifest、`SKILL.md` 入口、权限和可选脚本。
+- 新安装项默认不自动启用，用户确认后才进入 Agent Runtime。
+
+## 常用脚本
+
+```bash
+npm run dev          # 启动 Vite 预览
+npm run build        # TypeScript + Vite 构建
+npm run test         # 运行 Vitest 单元测试
+npm run runtime:dev  # 启动 Node.js sidecar 原型
+npm run tauri:dev    # 启动 Tauri 桌面端
+npm run tauri:build  # 构建桌面安装包
+```
+
+## 测试覆盖
+
+当前测试覆盖重点：
+
+- Provider Adapter 的价格与 Token 统计基础逻辑。
+- Context Compiler 的排序、裁剪和上下文预算逻辑。
+- Memory 的来源追踪和检索逻辑。
+- Skill Manifest 与 MCP Manifest 的校验逻辑。
+- UI 侧通过本地浏览器验证任务输入、上传、Provider 配置、Skill/MCP 安装和移动端导航。
+
+## 产品状态
+
+这是一个可运行的产品级前端与本地 Runtime 原型：核心信息架构、交互、状态持久化、Provider 连通测试、Token 监控、Context Inspector、MCP/Skill 安装入口已经完成。后续要继续做成真正可发布的商业桌面应用，建议优先补齐：
+
+- Tauri command 到 SQLite、Keychain、LanceDB 的真实落库。
+- MCP 进程管理与 HTTP/SSE 会话管理。
+- Docker/Podman 沙箱执行器。
+- 真实 Agent 任务队列、暂停/继续/重试和审批弹窗。
+- Windows/macOS 安装包签名与自动更新。
