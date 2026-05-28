@@ -1,6 +1,5 @@
 import { CloudSyncOutlined, PlusOutlined } from "@ant-design/icons";
 import {
-  Alert,
   Button,
   Card,
   Form,
@@ -378,21 +377,6 @@ export function ProviderHub() {
         </Tooltip>
       }
     >
-      <Alert
-        showIcon
-        type="info"
-        message={
-          language === "zh"
-              ? "不是只支持 OpenAI 格式：AstraFlow 已内置 OpenAI-compatible、Anthropic Messages、Gemini generateContent 三类 Adapter。"
-            : "AstraFlow supports OpenAI-compatible, Anthropic Messages, and Gemini generateContent adapters."
-        }
-        description={
-          language === "zh"
-            ? "小米 MiMo、DeepSeek、Qwen、Kimi、Zhipu、Ollama 走 OpenAI-compatible；Anthropic 走原生 /v1/messages；Gemini 走原生 generateContent。API Key 当前只保留脱敏标记在本地状态，明文不会持久化。"
-            : "Xiaomi MiMo, DeepSeek, Qwen, Kimi, Zhipu, and Ollama use OpenAI-compatible APIs; Anthropic and Gemini use native protocols. Plain API keys are not persisted."
-        }
-        style={{ marginBottom: 12 }}
-      />
       <Table
         rowKey="id"
         columns={columns}
