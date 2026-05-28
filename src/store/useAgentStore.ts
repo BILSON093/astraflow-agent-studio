@@ -38,6 +38,8 @@ type CreateTaskInput = {
   executionMode?: TaskExecutionMode;
 };
 
+type MemoryDraft = Pick<MemoryRecord, "kind" | "content" | "source" | "confidence" | "enabled">;
+
 type AgentState = {
   tasks: AgentTask[];
   plans: Record<string, ExecutionPlan>;
@@ -54,7 +56,9 @@ type AgentState = {
   pauseTask: (taskId: string) => void;
   resumeTask: (taskId: string) => void;
   cancelTask: (taskId: string) => void;
+  addMemory: (memory: MemoryDraft) => MemoryRecord;
   updateMemory: (id: string, patch: Partial<MemoryRecord>) => void;
+  deleteMemory: (id: string) => void;
   searchMemory: (query: string, kind?: MemoryKind) => MemoryRecord[];
   enableSkill: (name: string, enabled: boolean) => void;
   installSkill: (skill: SkillManifest) => void;
@@ -349,6 +353,23 @@ export const useAgentStore = create<AgentState>()(
       logs: addLog(state.logs, "任务已取消。", "warning", taskId),
     }));
   },
+  addMemory: (draft) => {
+    const id = uuidv4();
+    const memory: MemoryRecord = {
+      ...draft,
+      id,
+      createdAt: now(),
+      updatedAt: now(),
+      embeddingId: `local-${draft.kind}-${id}`,
+    };
+
+    set((state) => ({
+      memories: [memory, ...state.memories],
+      logs: addLog(state.logs, `已添加 ${draft.kind} 记忆：${draft.source}。`),
+    }));
+
+    return memory;
+  },
   updateMemory: (id, patch) => {
     set((state) => ({
       memories: state.memories.map((memory) =>
@@ -356,6 +377,20 @@ export const useAgentStore = create<AgentState>()(
       ),
       logs: addLog(state.logs, `记忆 ${id} 已更新。`),
     }));
+  },
+  deleteMemory: (id) => {
+    set((state) => {
+      const memory = state.memories.find((item) => item.id === id);
+
+      return {
+        memories: state.memories.filter((item) => item.id !== id),
+        logs: addLog(
+          state.logs,
+          memory ? `已删除 ${memory.kind} 记忆：${memory.source}。` : `记忆 ${id} 已删除。`,
+          "warning",
+        ),
+      };
+    });
   },
   searchMemory: (query, kind) => {
     const normalizedQuery = query.trim().toLowerCase();

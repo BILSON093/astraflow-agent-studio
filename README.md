@@ -11,7 +11,7 @@
 - **Task Plan / Coding Plan**：任务开始前生成执行计划；代码类任务会额外生成影响范围、修改策略、验证命令和回滚建议。
 - **Token Plan**：预估上下文大小、模型策略、输入/输出 Token、软预算和硬预算。
 - **Token Monitor**：按任务、模型、Provider 聚合 Token 与费用，Provider 连通测试成功后也会写入用量记录。
-- **Memory System**：支持 Profile、Project、Episodic、Procedural 四类记忆，包含本地存储位置、写入策略、生命周期、治理开关、来源、时间、置信度、启用状态。
+- **Memory System**：支持 Profile、Project、Episodic、Procedural 四类记忆，包含本地存储位置、写入策略、生命周期、治理开关、来源、时间、置信度、启用状态，并支持手动添加、编辑、禁用和删除。
 - **Context Inspector**：展示实际进入模型的上下文；只有发生超预算裁剪时才展示“被裁剪内容”。
 - **MCP Center**：支持 stdio、HTTP/SSE 形态的 MCP Server 安装、启用、禁用和权限声明。
 - **Skill Store**：支持从语义一句话推荐并安装 Skill，Skill 通过 Runtime 权限层调用工具。
@@ -96,6 +96,13 @@ API Key 只用于本次保存/测试流程，前端状态只保留脱敏标记�
 - **Context Compiler**：按“当前任务 > 用户明确输入 > 选中文件/网页 > 相关记忆 > Skill 指令 > 历史摘要”的优先级注入上下文。
 
 敏感信息不进入模型上下文；密钥只进入系统 Keychain。低置信度记忆先进入候选区，用户确认后再固化。
+
+记忆记录可以在界面中直接管理：
+
+- 手动添加新的 Profile / Project / Episodic / Procedural 记忆。
+- 编辑记忆类型、来源、内容、置信度和启用状态。
+- 禁用后不参与检索和上下文注入。
+- 删除后从本地记忆列表移除，不再被后续任务使用。
 
 ## MCP 与 Skill
 

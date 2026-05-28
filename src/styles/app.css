@@ -397,6 +397,16 @@ textarea {
   color: #34454d;
 }
 
+.memory-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 260px;
+}
+
 .log-row {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
@@ -464,5 +474,14 @@ textarea {
 
   .canvas-frame {
     height: 420px;
+  }
+
+  .memory-row {
+    flex-direction: column;
+  }
+
+  .memory-actions {
+    justify-content: flex-start;
+    max-width: none;
   }
 }
