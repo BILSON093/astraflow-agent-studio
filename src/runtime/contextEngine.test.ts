@@ -7,6 +7,7 @@ const task: AgentTask = {
   id: "task-context",
   title: "context",
   input: "分析当前任务并生成计划",
+  executionMode: "plan",
   status: "planned",
   riskLevel: "low",
   createdAt: new Date().toISOString(),

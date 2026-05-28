@@ -13,6 +13,7 @@ import type {
   RuntimeLog,
   SkillManifest,
   TaskAttachment,
+  TaskExecutionMode,
   UsageEntry,
 } from "../domain/types";
 import {
@@ -34,6 +35,7 @@ type CreateTaskInput = {
   modelPolicy: ModelPolicy;
   softBudgetUsd?: number;
   hardBudgetUsd?: number;
+  executionMode?: TaskExecutionMode;
 };
 
 type AgentState = {
@@ -106,6 +108,7 @@ const demoTask: AgentTask = {
   input: "读取本周任务日志和 Token 用量，生成一份结构化周报，并标记超预算任务。",
   workspace: "/Users/demo/workspace",
   status: "planned",
+  executionMode: "plan",
   riskLevel: "medium",
   createdAt: now(),
   updatedAt: now(),
@@ -161,19 +164,42 @@ export const useAgentStore = create<AgentState>()(
   logs: addLog([], "AstraFlow Runtime 已启动，本地沙箱与审批策略处于启用状态。"),
   contextReports: { [demoTask.id]: demoContext },
   activeTaskId: demoTask.id,
-  createTask: ({ input, workspace, attachments = [], modelPolicy, softBudgetUsd, hardBudgetUsd }) => {
+  createTask: ({
+    input,
+    workspace,
+    attachments = [],
+    modelPolicy,
+    softBudgetUsd,
+    hardBudgetUsd,
+    executionMode = "plan",
+  }) => {
+    const riskLevel = inferRiskLevel(input);
+    const shouldAutoExecute = executionMode === "direct" && riskLevel !== "high";
+    const shouldBlockForApproval = executionMode === "direct" && riskLevel === "high";
     const task: AgentTask = {
       id: uuidv4(),
       title: input.length > 24 ? `${input.slice(0, 24)}...` : input,
       input,
       workspace,
       attachments,
-      status: "planned",
-      riskLevel: inferRiskLevel(input),
+      executionMode,
+      status: shouldAutoExecute ? "done" : shouldBlockForApproval ? "blocked" : "planned",
+      riskLevel,
       createdAt: now(),
       updatedAt: now(),
     };
     const plan = createExecutionPlan(task, modelPolicy, softBudgetUsd, hardBudgetUsd);
+    const executablePlan: ExecutionPlan = shouldAutoExecute
+      ? {
+          ...plan,
+          steps: plan.steps.map((step) => ({
+            ...step,
+            status: "done",
+            outputPreview:
+              step.outputPreview ?? `${step.title} 已由直接执行模式完成。`,
+          })),
+        }
+      : plan;
     const selectedArtifacts = [
       ...(workspace ? [`当前工作区：${workspace}`] : []),
       ...attachments.map(
@@ -189,16 +215,55 @@ export const useAgentStore = create<AgentState>()(
       selectedArtifacts: selectedArtifacts.length ? selectedArtifacts : undefined,
       maxTokens: Math.min(plan.estimatedTokenPlan.maxTokens, 10_000),
     });
+    const provider = selectProvider(get().providers, plan.estimatedTokenPlan.modelPolicy);
+    const autoUsage: UsageEntry | undefined = shouldAutoExecute
+      ? {
+          id: uuidv4(),
+          taskId: task.id,
+          providerId: provider.id,
+          model: provider.model,
+          promptTokens: plan.estimatedTokenPlan.estimatedInputTokens,
+          completionTokens: Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.64),
+          embeddingTokens: attachments.length ? 760 : 420,
+          cachedTokens: 1_000,
+          costUsd: calculateCost(
+            provider,
+            plan.estimatedTokenPlan.estimatedInputTokens,
+            Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.64),
+            attachments.length ? 760 : 420,
+          ),
+          createdAt: now(),
+        }
+      : undefined;
+    const autoMemory: MemoryRecord | undefined = shouldAutoExecute
+      ? {
+          id: uuidv4(),
+          kind: "episodic",
+          content: `直接执行任务「${task.title}」已完成，风险等级 ${task.riskLevel}，工作区 ${workspace || "未指定"}。`,
+          source: "direct-execution",
+          confidence: 0.82,
+          enabled: true,
+          createdAt: now(),
+          updatedAt: now(),
+          embeddingId: `local-episodic-${task.id}`,
+        }
+      : undefined;
 
     set((state) => ({
       tasks: [task, ...state.tasks],
-      plans: { ...state.plans, [task.id]: plan },
+      plans: { ...state.plans, [task.id]: executablePlan },
       contextReports: { ...state.contextReports, [task.id]: contextReport },
+      usageEntries: autoUsage ? [autoUsage, ...state.usageEntries] : state.usageEntries,
+      memories: autoMemory ? [autoMemory, ...state.memories] : state.memories,
       activeTaskId: task.id,
       logs: addLog(
         state.logs,
-        `已创建任务计划：${task.title}，风险等级 ${task.riskLevel}。`,
-        task.riskLevel === "high" ? "security" : "info",
+        shouldAutoExecute
+          ? `直接执行完成：${task.title}，Token 用量和 episodic memory 已写入。`
+          : shouldBlockForApproval
+            ? `直接执行被安全层拦截：${task.title} 需要人工审批。`
+            : `已创建任务计划：${task.title}，风险等级 ${task.riskLevel}。`,
+        shouldBlockForApproval || task.riskLevel === "high" ? "security" : "info",
         task.id,
       ),
     }));

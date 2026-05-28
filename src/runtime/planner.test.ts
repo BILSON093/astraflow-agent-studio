@@ -7,6 +7,7 @@ function makeTask(input: string): AgentTask {
     id: "task-test",
     title: "test",
     input,
+    executionMode: "plan",
     status: "planned",
     riskLevel: inferRiskLevel(input),
     createdAt: new Date().toISOString(),

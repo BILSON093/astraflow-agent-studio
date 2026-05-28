@@ -212,6 +212,15 @@ function AppContent() {
                   <div className="task-queue-title">
                     <Space wrap>
                       <Typography.Text strong>{task.title}</Typography.Text>
+                      <Tag color={task.executionMode === "direct" ? "volcano" : "cyan"}>
+                        {task.executionMode === "direct"
+                          ? language === "zh"
+                            ? "直接执行"
+                            : "direct"
+                          : language === "zh"
+                            ? "计划模式"
+                            : "plan"}
+                      </Tag>
                       <Tag color={statusColor[task.status]}>{formatTaskStatus(task.status)}</Tag>
                       <Tag>{formatRisk(task.riskLevel)}</Tag>
                     </Space>

@@ -7,11 +7,11 @@
 ## 核心能力
 
 - **Agent Canvas**：用可视化节点展示 Planner、Memory、Context、MCP Tool、Skill、Model Call、Result 的执行链路。
-- **任务入口**：支持一句话手写任务、工作区路径、文件上传、图片上传和多模态任务附件。
+- **任务入口**：支持一句话手写任务、计划模式/直接执行切换、工作区文件夹选择、文件上传、图片上传和多模态任务附件。
 - **Task Plan / Coding Plan**：任务开始前生成执行计划；代码类任务会额外生成影响范围、修改策略、验证命令和回滚建议。
 - **Token Plan**：预估上下文大小、模型策略、输入/输出 Token、软预算和硬预算。
 - **Token Monitor**：按任务、模型、Provider 聚合 Token 与费用，Provider 连通测试成功后也会写入用量记录。
-- **Memory System**：支持 Profile、Project、Episodic、Procedural 四类记忆，包含来源、时间、置信度、启用状态。
+- **Memory System**：支持 Profile、Project、Episodic、Procedural 四类记忆，包含本地存储位置、写入策略、生命周期、治理开关、来源、时间、置信度、启用状态。
 - **Context Inspector**：展示实际进入模型的上下文；只有发生超预算裁剪时才展示“被裁剪内容”。
 - **MCP Center**：支持 stdio、HTTP/SSE 形态的 MCP Server 安装、启用、禁用和权限声明。
 - **Skill Store**：支持从语义一句话推荐并安装 Skill，Skill 通过 Runtime 权限层调用工具。
@@ -77,6 +77,25 @@ npm run tauri:build
 - Ollama：本地无需 API Key，可直接测试 `http://localhost:11434/v1`。
 
 API Key 只用于本次保存/测试流程，前端状态只保留脱敏标记。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
+
+## 任务执行模式
+
+聊天任务框支持两种执行模式：
+
+- **计划模式**：只生成 Task Plan / Coding Plan，用户审批后再执行。
+- **直接执行**：先生成计划，再自动执行低/中风险任务；如果识别到 Shell、密钥、删除、部署、Git push 等高风险动作，会自动切换到人工审批态。
+
+桌面端点击 **选择工作区** 会打开系统文件夹选择器，并把本机路径写入任务上下文。网页预览受浏览器安全限制，不能读取完整本机路径，可先手动粘贴路径。
+
+## 记忆架构
+
+记忆模块放在本地 Agent Runtime 内，由三层组成：
+
+- **SQLite metadata**：保存记忆类型、来源、置信度、启用状态、时间戳和任务关联。
+- **LanceDB vector index**：保存 Profile、Project、Episodic、Procedural 四类向量索引。
+- **Context Compiler**：按“当前任务 > 用户明确输入 > 选中文件/网页 > 相关记忆 > Skill 指令 > 历史摘要”的优先级注入上下文。
+
+敏感信息不进入模型上下文；密钥只进入系统 Keychain。低置信度记忆先进入候选区，用户确认后再固化。
 
 ## MCP 与 Skill
 

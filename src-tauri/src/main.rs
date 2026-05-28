@@ -82,6 +82,7 @@ fn usage_report(payload: Option<Value>) -> Value {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             task_create,
             task_approve_plan,

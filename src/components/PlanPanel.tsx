@@ -66,6 +66,15 @@ export function PlanPanel({ task, plan }: Props) {
 
       <Descriptions size="small" column={2} bordered>
         <Descriptions.Item label={t("status")}>{formatTaskStatus(task.status)}</Descriptions.Item>
+        <Descriptions.Item label={language === "zh" ? "执行模式" : "Execution Mode"}>
+          {task.executionMode === "direct"
+            ? language === "zh"
+              ? "直接执行"
+              : "direct"
+            : language === "zh"
+              ? "计划模式"
+              : "plan"}
+        </Descriptions.Item>
         <Descriptions.Item label={t("modelPolicy")}>
           {formatModelPolicy(plan.estimatedTokenPlan.modelPolicy)}
         </Descriptions.Item>

@@ -23,6 +23,8 @@ export type ModelPolicy =
   | "code_first"
   | "privacy_first";
 
+export type TaskExecutionMode = "plan" | "direct";
+
 export type MemoryKind = "profile" | "project" | "episodic" | "procedural";
 
 export type PermissionLevel = "read" | "write" | "execute" | "external" | "admin";
@@ -41,6 +43,7 @@ export type AgentTask = {
   input: string;
   workspace?: string;
   attachments?: TaskAttachment[];
+  executionMode: TaskExecutionMode;
   status: TaskStatus;
   riskLevel: RiskLevel;
   createdAt: string;

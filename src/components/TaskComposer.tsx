@@ -1,9 +1,12 @@
 import {
   CodeOutlined,
   FileImageOutlined,
+  FolderOpenOutlined,
   InboxOutlined,
   PaperClipOutlined,
+  ProfileOutlined,
   SendOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -11,14 +14,18 @@ import {
   Flex,
   Input,
   InputNumber,
+  message,
   Select,
+  Segmented,
   Space,
   Tag,
   Upload,
 } from "antd";
 import type { UploadFile } from "antd";
 import { useMemo, useState } from "react";
-import type { ModelPolicy, TaskAttachment } from "../domain/types";
+import type { ModelPolicy, TaskAttachment, TaskExecutionMode } from "../domain/types";
+import { isTauriRuntime } from "../desktop/commands";
+import { selectWorkspaceDirectory } from "../desktop/workspaceDialog";
 import { useI18n } from "../i18n";
 import { useAgentStore } from "../store/useAgentStore";
 
@@ -58,6 +65,7 @@ export function TaskComposer() {
   const [workspace, setWorkspace] = useState("");
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [modelPolicy, setModelPolicy] = useState<ModelPolicy>("balanced");
+  const [executionMode, setExecutionMode] = useState<TaskExecutionMode>("plan");
   const [softBudgetUsd, setSoftBudgetUsd] = useState(1.5);
   const [hardBudgetUsd, setHardBudgetUsd] = useState(3);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -71,10 +79,38 @@ export function TaskComposer() {
       })),
     [formatModelPolicy],
   );
+  const executionModeOptions = useMemo(
+    () => [
+      {
+        label: (
+          <Space size={4}>
+            <ProfileOutlined />
+            {language === "zh" ? "计划模式" : "Plan"}
+          </Space>
+        ),
+        value: "plan",
+      },
+      {
+        label: (
+          <Space size={4}>
+            <ThunderboltOutlined />
+            {language === "zh" ? "直接执行" : "Direct"}
+          </Space>
+        ),
+        value: "direct",
+      },
+    ],
+    [language],
+  );
 
-  const submitTask = (override?: string, overridePolicy?: ModelPolicy) => {
+  const submitTask = (
+    override?: string,
+    overridePolicy?: ModelPolicy,
+    overrideMode?: TaskExecutionMode,
+  ) => {
     const taskText = (override ?? input).trim();
     const policy = overridePolicy ?? modelPolicy;
+    const mode = overrideMode ?? executionMode;
     const attachments = fileList.map(fileToAttachment);
     const finalText =
       taskText ||
@@ -89,7 +125,20 @@ export function TaskComposer() {
       modelPolicy: policy,
       softBudgetUsd,
       hardBudgetUsd,
+      executionMode: mode,
     });
+    const assistantReply =
+      mode === "direct" && task.status === "done"
+        ? language === "zh"
+          ? `已直接执行完成：${task.title}`
+          : `Direct execution completed: ${task.title}`
+        : mode === "direct" && task.status === "blocked"
+          ? language === "zh"
+            ? `已生成计划，但检测到高风险动作，已切换为人工审批：${task.title}`
+            : `Plan created, but high-risk actions require approval: ${task.title}`
+          : language === "zh"
+            ? `已生成任务计划：${task.title}`
+            : `Execution plan created: ${task.title}`;
 
     setMessages((current) => [
       ...current,
@@ -104,13 +153,38 @@ export function TaskComposer() {
       {
         id: `${task.id}-assistant`,
         role: "assistant",
-        content:
-          language === "zh"
-            ? `已生成任务计划：${task.title}`
-            : `Execution plan created: ${task.title}`,
+        content: assistantReply,
       },
     ]);
     setInput("");
+  };
+
+  const chooseWorkspace = async () => {
+    try {
+      const selected = await selectWorkspaceDirectory();
+
+      if (selected) {
+        setWorkspace(selected);
+        message.success(language === "zh" ? "已选择工作区。" : "Workspace selected.");
+        return;
+      }
+
+      if (!isTauriRuntime()) {
+        message.info(
+          language === "zh"
+            ? "网页预览无法读取完整本机路径；桌面端会打开系统文件夹选择器，也可以先手动粘贴路径。"
+            : "The web preview cannot read full local paths; the desktop app opens a native folder picker.",
+        );
+      }
+    } catch (error) {
+      message.warning(
+        error instanceof Error
+          ? error.message
+          : language === "zh"
+            ? "工作区选择失败。"
+            : "Failed to select workspace.",
+      );
+    }
   };
 
   const applyCodingPlan = () => {
@@ -119,7 +193,7 @@ export function TaskComposer() {
         ? "检查当前工作区，生成代码任务计划，列出影响文件、修改步骤、验证命令和回滚方式。"
         : "Inspect the current workspace and create a code task plan with affected files, steps, verification commands, and rollback notes.";
     setInput(text);
-    submitTask(text, "code_first");
+    submitTask(text, "code_first", "plan");
   };
 
   return (
@@ -128,7 +202,13 @@ export function TaskComposer() {
       title={language === "zh" ? "聊天任务框" : "Agent Chat"}
       extra={
         <Space size={6} wrap>
-          <Tag color="cyan">{t("planFirstRuntime")}</Tag>
+          <Tag color={executionMode === "direct" ? "volcano" : "cyan"}>
+            {executionMode === "direct"
+              ? language === "zh"
+                ? "安全直跑"
+                : "Safe direct run"
+              : t("planFirstRuntime")}
+          </Tag>
           <Tag icon={<FileImageOutlined />}>
             {language === "zh" ? "文件 / 图片" : "Files / Images"}
           </Tag>
@@ -139,8 +219,8 @@ export function TaskComposer() {
         <div className="chat-thread">
           <div className="chat-bubble assistant">
             {language === "zh"
-              ? "直接写一句任务，也可以拖入文件、图片，再让 AstraFlow 生成执行计划。"
-              : "Write a task in one sentence, attach files or images, then let AstraFlow create the execution plan."}
+              ? "先选计划模式还是直接执行；直接执行只会自动跑低/中风险任务，高风险会停在审批。"
+              : "Choose plan mode or direct execution. Direct mode only auto-runs low/medium-risk tasks."}
           </div>
           {messages.map((message) => (
             <div className={`chat-bubble ${message.role}`} key={message.id}>
@@ -167,6 +247,13 @@ export function TaskComposer() {
           }
         />
 
+        <Segmented
+          block
+          options={executionModeOptions}
+          value={executionMode}
+          onChange={(value) => setExecutionMode(value as TaskExecutionMode)}
+        />
+
         <Upload.Dragger
           multiple
           fileList={fileList}
@@ -187,12 +274,17 @@ export function TaskComposer() {
 
         <Flex wrap gap={10} align="center" justify="space-between">
           <Space wrap>
-            <Input
-              value={workspace}
-              onChange={(event) => setWorkspace(event.target.value)}
-              placeholder={t("workspacePlaceholder")}
-              style={{ width: 260 }}
-            />
+            <Space.Compact>
+              <Input
+                value={workspace}
+                onChange={(event) => setWorkspace(event.target.value)}
+                placeholder={t("workspacePlaceholder")}
+                style={{ width: 300 }}
+              />
+              <Button icon={<FolderOpenOutlined />} onClick={chooseWorkspace}>
+                {language === "zh" ? "选择工作区" : "Choose"}
+              </Button>
+            </Space.Compact>
             <Select
               aria-label="模型路由策略"
               options={modelPolicyOptions}
@@ -224,11 +316,23 @@ export function TaskComposer() {
             </Button>
             <Button
               type="primary"
-              icon={fileList.length ? <PaperClipOutlined /> : <SendOutlined />}
+              icon={
+                executionMode === "direct" ? (
+                  <ThunderboltOutlined />
+                ) : fileList.length ? (
+                  <PaperClipOutlined />
+                ) : (
+                  <SendOutlined />
+                )
+              }
               disabled={disabled}
               onClick={() => submitTask()}
             >
-              {t("createPlan")}
+              {executionMode === "direct"
+                ? language === "zh"
+                  ? "直接执行"
+                  : "Run"
+                : t("createPlan")}
             </Button>
           </Space>
         </Flex>
