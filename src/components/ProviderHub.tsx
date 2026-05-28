@@ -1,5 +1,6 @@
 import { CloudSyncOutlined, PlusOutlined } from "@ant-design/icons";
 import {
+  Alert,
   Button,
   Card,
   Form,
@@ -19,6 +20,7 @@ import type { TableColumnsType } from "antd";
 import { useState } from "react";
 import type { ModelPolicy, ProviderConfig } from "../domain/types";
 import { useI18n } from "../i18n";
+import { getProviderProtocolLabel } from "../runtime/providerAdapters";
 import { useAgentStore } from "../store/useAgentStore";
 
 type ProviderFormValue = {
@@ -46,6 +48,17 @@ const providerKinds: ProviderConfig["kind"][] = [
   "ollama",
 ];
 
+const providerKindLabels: Record<ProviderConfig["kind"], string> = {
+  "openai-compatible": "OpenAI-compatible",
+  anthropic: "Anthropic Messages",
+  gemini: "Gemini generateContent",
+  deepseek: "DeepSeek OpenAI-compatible",
+  qwen: "Qwen OpenAI-compatible",
+  kimi: "Kimi OpenAI-compatible",
+  zhipu: "Zhipu OpenAI-compatible",
+  ollama: "Ollama Local",
+};
+
 const modelPolicies: ModelPolicy[] = [
   "low_cost",
   "balanced",
@@ -53,6 +66,71 @@ const modelPolicies: ModelPolicy[] = [
   "long_context",
   "code_first",
   "privacy_first",
+];
+
+const providerPresets: Array<
+  Omit<ProviderFormValue, "id" | "apiKey" | "enabled"> & { enabled?: boolean }
+> = [
+  {
+    name: "OpenAI Compatible",
+    kind: "openai-compatible",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-5",
+    contextWindow: 400_000,
+    inputPricePerMTok: 1.25,
+    outputPricePerMTok: 10,
+    tags: ["balanced", "strong_reasoning", "code_first"],
+  },
+  {
+    name: "Anthropic Claude",
+    kind: "anthropic",
+    baseUrl: "https://api.anthropic.com",
+    model: "claude-sonnet-4-20250514",
+    contextWindow: 200_000,
+    inputPricePerMTok: 3,
+    outputPricePerMTok: 15,
+    tags: ["strong_reasoning", "long_context", "code_first"],
+  },
+  {
+    name: "Google Gemini",
+    kind: "gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    model: "gemini-2.5-pro",
+    contextWindow: 1_048_576,
+    inputPricePerMTok: 1.25,
+    outputPricePerMTok: 10,
+    tags: ["long_context", "strong_reasoning", "code_first"],
+  },
+  {
+    name: "DeepSeek",
+    kind: "deepseek",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    contextWindow: 128_000,
+    inputPricePerMTok: 0.27,
+    outputPricePerMTok: 1.1,
+    tags: ["low_cost", "balanced", "code_first"],
+  },
+  {
+    name: "Qwen",
+    kind: "qwen",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-max",
+    contextWindow: 128_000,
+    inputPricePerMTok: 1.6,
+    outputPricePerMTok: 6.4,
+    tags: ["balanced", "long_context"],
+  },
+  {
+    name: "Ollama Local",
+    kind: "ollama",
+    baseUrl: "http://localhost:11434/v1",
+    model: "qwen3-coder",
+    contextWindow: 32_000,
+    inputPricePerMTok: 0,
+    outputPricePerMTok: 0,
+    tags: ["privacy_first", "low_cost", "code_first"],
+  },
 ];
 
 function makeProviderId(name: string): string {
@@ -84,19 +162,17 @@ export function ProviderHub() {
   const [submitting, setSubmitting] = useState(false);
   const [testingProviderId, setTestingProviderId] = useState<string>();
 
+  const applyPreset = (preset: (typeof providerPresets)[number]) => {
+    form.setFieldsValue({
+      ...preset,
+      enabled: preset.enabled ?? true,
+      apiKey: "",
+    });
+  };
+
   const openCreate = () => {
     setEditingProvider(undefined);
-    form.setFieldsValue({
-      name: "OpenAI Compatible",
-      kind: "openai-compatible",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-5",
-      contextWindow: 128_000,
-      inputPricePerMTok: 1,
-      outputPricePerMTok: 5,
-      tags: ["balanced"],
-      enabled: true,
-    });
+    applyPreset(providerPresets[0]);
     setOpen(true);
   };
 
@@ -189,6 +265,11 @@ export function ProviderHub() {
       ),
     },
     {
+      title: language === "zh" ? "协议" : "Protocol",
+      key: "protocol",
+      render: (_, provider) => <Tag color="purple">{getProviderProtocolLabel(provider)}</Tag>,
+    },
+    {
       title: t("policy"),
       dataIndex: "tags",
       key: "tags",
@@ -275,12 +356,27 @@ export function ProviderHub() {
         </Tooltip>
       }
     >
+      <Alert
+        showIcon
+        type="info"
+        message={
+          language === "zh"
+            ? "不是只支持 OpenAI 格式：AstraFlow 已内置 OpenAI-compatible、Anthropic Messages、Gemini generateContent 三类 Adapter。"
+            : "AstraFlow supports OpenAI-compatible, Anthropic Messages, and Gemini generateContent adapters."
+        }
+        description={
+          language === "zh"
+            ? "DeepSeek、Qwen、Kimi、Zhipu、Ollama 走 OpenAI-compatible；Anthropic 走原生 /v1/messages；Gemini 走原生 generateContent。"
+            : "DeepSeek, Qwen, Kimi, Zhipu, and Ollama use OpenAI-compatible APIs; Anthropic and Gemini use native protocols."
+        }
+        style={{ marginBottom: 12 }}
+      />
       <Table
         rowKey="id"
         columns={columns}
         dataSource={providers}
         pagination={false}
-        scroll={{ x: 980 }}
+        scroll={{ x: 1180 }}
       />
       <Modal
         title={editingProvider ? (language === "zh" ? "编辑模型供应商" : "Edit Provider") : t("addProvider")}
@@ -293,6 +389,15 @@ export function ProviderHub() {
         width={720}
       >
         <Form form={form} layout="vertical">
+          <Form.Item label={language === "zh" ? "快速预设" : "Presets"}>
+            <Space wrap>
+              {providerPresets.map((preset) => (
+                <Button key={preset.name} size="small" onClick={() => applyPreset(preset)}>
+                  {preset.name}
+                </Button>
+              ))}
+            </Space>
+          </Form.Item>
           <Space.Compact block>
             <Form.Item
               name="name"
@@ -308,7 +413,12 @@ export function ProviderHub() {
               rules={[{ required: true }]}
               style={{ width: "50%" }}
             >
-              <Select options={providerKinds.map((kind) => ({ label: kind, value: kind }))} />
+              <Select
+                options={providerKinds.map((kind) => ({
+                  label: providerKindLabels[kind],
+                  value: kind,
+                }))}
+              />
             </Form.Item>
           </Space.Compact>
           <Form.Item name="baseUrl" label="Base URL" rules={[{ required: true }, { type: "url" }]}>

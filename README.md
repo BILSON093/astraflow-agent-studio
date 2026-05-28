@@ -72,11 +72,19 @@ npm run tauri:build
 进入 **模型接入中心** 后可以添加或编辑 Provider：
 
 - 国内外 OpenAI-compatible API：填写 `Base URL`、模型名、价格和 API Key。
-- Anthropic：使用 `/v1/messages` 真实连通测试。
-- Gemini：使用 `generateContent` 真实连通测试。
+- Anthropic：使用原生 Messages API：`POST /v1/messages`，请求头包含 `x-api-key` 和 `anthropic-version`。
+- Gemini：使用原生 `generateContent`：`POST /v1beta/models/{model}:generateContent`，请求头包含 `x-goog-api-key`。
 - Ollama：本地无需 API Key，可直接测试 `http://localhost:11434/v1`。
 
 API Key 只用于本次保存/测试流程，前端状态只保留脱敏标记。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
+
+Provider Adapter 已拆成独立运行时层：
+
+- **OpenAI Chat Completions Adapter**：OpenAI-compatible、DeepSeek、Qwen、Kimi、Zhipu、Ollama。
+- **Anthropic Messages Adapter**：Claude 原生接口，Token 统计映射 `input_tokens / output_tokens`。
+- **Gemini generateContent Adapter**：Gemini 原生接口，Token 统计映射 `promptTokenCount / candidatesTokenCount`。
+
+模型名称不硬编码为唯一选择，界面允许用户按 Provider 手动维护模型、上下文长度和价格表。
 
 ## 任务执行模式
 

@@ -1,4 +1,9 @@
 import type { ProviderConfig } from "../domain/types";
+import {
+  buildProviderPingRequest,
+  parseProviderUsage,
+  providerNeedsApiKey,
+} from "./providerAdapters";
 import { calculateCost } from "./usage";
 
 export type ProviderTestResult = {
@@ -11,41 +16,6 @@ export type ProviderTestResult = {
 };
 
 type JsonRecord = Record<string, unknown>;
-
-function joinUrl(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
-
-function getNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function parseOpenAIUsage(json: JsonRecord) {
-  const usage = (json.usage ?? {}) as JsonRecord;
-
-  return {
-    promptTokens: getNumber(usage.prompt_tokens),
-    completionTokens: getNumber(usage.completion_tokens),
-  };
-}
-
-function parseAnthropicUsage(json: JsonRecord) {
-  const usage = (json.usage ?? {}) as JsonRecord;
-
-  return {
-    promptTokens: getNumber(usage.input_tokens),
-    completionTokens: getNumber(usage.output_tokens),
-  };
-}
-
-function parseGeminiUsage(json: JsonRecord) {
-  const usage = (json.usageMetadata ?? {}) as JsonRecord;
-
-  return {
-    promptTokens: getNumber(usage.promptTokenCount),
-    completionTokens: getNumber(usage.candidatesTokenCount),
-  };
-}
 
 async function readErrorMessage(response: Response): Promise<string> {
   try {
@@ -71,7 +41,7 @@ export async function testProviderConnection(
   apiKey?: string,
 ): Promise<ProviderTestResult> {
   const startedAt = performance.now();
-  const needsKey = provider.kind !== "ollama";
+  const needsKey = providerNeedsApiKey(provider);
 
   if (needsKey && !apiKey) {
     return {
@@ -85,48 +55,8 @@ export async function testProviderConnection(
   }
 
   try {
-    let response: Response;
-    let usage = { promptTokens: 0, completionTokens: 0 };
-
-    if (provider.kind === "anthropic") {
-      response = await fetch(joinUrl(provider.baseUrl, "/v1/messages"), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": apiKey ?? "",
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          max_tokens: 16,
-          messages: [{ role: "user", content: "ping" }],
-        }),
-      });
-    } else if (provider.kind === "gemini") {
-      const url = new URL(joinUrl(provider.baseUrl, `/models/${provider.model}:generateContent`));
-      url.searchParams.set("key", apiKey ?? "");
-      response = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "ping" }] }],
-        }),
-      });
-    } else {
-      response = await fetch(joinUrl(provider.baseUrl, "/chat/completions"), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          messages: [{ role: "user", content: "ping" }],
-          max_tokens: 16,
-          temperature: 0,
-        }),
-      });
-    }
+    const request = buildProviderPingRequest(provider, apiKey);
+    const response = await fetch(request.url, request.init);
 
     const latencyMs = Math.round(performance.now() - startedAt);
 
@@ -142,14 +72,7 @@ export async function testProviderConnection(
     }
 
     const json = (await response.json()) as JsonRecord;
-
-    if (provider.kind === "anthropic") {
-      usage = parseAnthropicUsage(json);
-    } else if (provider.kind === "gemini") {
-      usage = parseGeminiUsage(json);
-    } else {
-      usage = parseOpenAIUsage(json);
-    }
+    const usage = parseProviderUsage(provider, json);
 
     return {
       ok: true,
