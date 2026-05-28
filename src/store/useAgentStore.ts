@@ -26,7 +26,7 @@ import {
 import { compileContext } from "../runtime/contextEngine";
 import { createExecutionPlan, inferRiskLevel } from "../runtime/planner";
 import { testProviderConnection, type ProviderTestResult } from "../runtime/providerClient";
-import { calculateCost } from "../runtime/usage";
+import { calculateCacheCost, calculateCost } from "../runtime/usage";
 
 type CreateTaskInput = {
   input: string;
@@ -128,6 +128,8 @@ const demoContext = compileContext({
   maxTokens: 6_000,
 });
 const demoProvider = selectProvider(defaultProviders, "balanced");
+const demoDeepSeekProvider =
+  defaultProviders.find((provider) => provider.id === "deepseek") ?? demoProvider;
 const demoUsage: UsageEntry[] = [
   {
     id: "usage-1",
@@ -138,6 +140,7 @@ const demoUsage: UsageEntry[] = [
     completionTokens: 1_860,
     embeddingTokens: 800,
     cachedTokens: 1_200,
+    cacheCostUsd: calculateCacheCost(demoProvider, 1_200),
     costUsd: calculateCost(demoProvider, 5_420, 1_860, 800),
     createdAt: now(),
   },
@@ -150,6 +153,7 @@ const demoUsage: UsageEntry[] = [
     completionTokens: 1_100,
     embeddingTokens: 500,
     cachedTokens: 900,
+    cacheCostUsd: calculateCacheCost(demoDeepSeekProvider, 900),
     costUsd: 0.0025,
     createdAt: now(),
   },
@@ -230,6 +234,7 @@ export const useAgentStore = create<AgentState>()(
           completionTokens: Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.64),
           embeddingTokens: attachments.length ? 760 : 420,
           cachedTokens: 1_000,
+          cacheCostUsd: calculateCacheCost(provider, 1_000),
           costUsd: calculateCost(
             provider,
             plan.estimatedTokenPlan.estimatedInputTokens,
@@ -293,6 +298,7 @@ export const useAgentStore = create<AgentState>()(
       completionTokens: Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.72),
       embeddingTokens: 620,
       cachedTokens: 1_400,
+      cacheCostUsd: calculateCacheCost(provider, 1_400),
       costUsd: calculateCost(
         provider,
         plan.estimatedTokenPlan.estimatedInputTokens,
@@ -473,6 +479,7 @@ export const useAgentStore = create<AgentState>()(
           completionTokens: result.completionTokens,
           embeddingTokens: 0,
           cachedTokens: 0,
+          cacheCostUsd: 0,
           costUsd: result.costUsd,
           createdAt: now(),
         }
@@ -503,8 +510,23 @@ export const useAgentStore = create<AgentState>()(
 }),
     {
       name: "astraflow-agent-state-v1",
-      version: 1,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<AgentState> | undefined;
+        const savedProviders = saved?.providers ?? [];
+        const providerMap = new Map(savedProviders.map((provider) => [provider.id, provider]));
+
+        for (const provider of defaultProviders) {
+          providerMap.set(provider.id, { ...provider, ...providerMap.get(provider.id) });
+        }
+
+        return {
+          ...current,
+          ...saved,
+          providers: Array.from(providerMap.values()),
+        } as AgentState;
+      },
       partialize: (state) => ({
         tasks: state.tasks,
         plans: state.plans,

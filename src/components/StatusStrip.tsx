@@ -46,7 +46,8 @@ export function StatusStrip({ taskCount, memoryCount, providers, usageEntries }:
         </div>
         <div className="status-value">${usageReport.weekCost.toFixed(4)}</div>
         <div className="status-note">
-          {usageReport.weekTokens.toLocaleString()} {t("token")}
+          {usageReport.weekTokens.toLocaleString()} {t("token")} ·{" "}
+          {language === "zh" ? "缓存命中" : "cache hit"} {usageReport.cacheHitRate}%
         </div>
       </div>
     </div>

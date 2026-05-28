@@ -143,6 +143,7 @@ export type ProviderKind =
   | "openai-compatible"
   | "anthropic"
   | "gemini"
+  | "mimo"
   | "deepseek"
   | "qwen"
   | "kimi"
@@ -158,6 +159,7 @@ export type ProviderConfig = {
   contextWindow: number;
   inputPricePerMTok: number;
   outputPricePerMTok: number;
+  cacheReadPricePerMTok?: number;
   tags: ModelPolicy[];
   enabled: boolean;
   maskedKey?: string;
@@ -173,6 +175,7 @@ export type UsageEntry = {
   completionTokens: number;
   embeddingTokens: number;
   cachedTokens: number;
+  cacheCostUsd?: number;
   costUsd: number;
   createdAt: string;
 };

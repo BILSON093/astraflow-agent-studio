@@ -32,6 +32,7 @@ type ProviderFormValue = {
   contextWindow: number;
   inputPricePerMTok: number;
   outputPricePerMTok: number;
+  cacheReadPricePerMTok: number;
   tags: ModelPolicy[];
   apiKey?: string;
   enabled: boolean;
@@ -41,6 +42,7 @@ const providerKinds: ProviderConfig["kind"][] = [
   "openai-compatible",
   "anthropic",
   "gemini",
+  "mimo",
   "deepseek",
   "qwen",
   "kimi",
@@ -52,6 +54,7 @@ const providerKindLabels: Record<ProviderConfig["kind"], string> = {
   "openai-compatible": "OpenAI-compatible",
   anthropic: "Anthropic Messages",
   gemini: "Gemini generateContent",
+  mimo: "Xiaomi MiMo OpenAI-compatible",
   deepseek: "DeepSeek OpenAI-compatible",
   qwen: "Qwen OpenAI-compatible",
   kimi: "Kimi OpenAI-compatible",
@@ -79,6 +82,7 @@ const providerPresets: Array<
     contextWindow: 400_000,
     inputPricePerMTok: 1.25,
     outputPricePerMTok: 10,
+    cacheReadPricePerMTok: 0.125,
     tags: ["balanced", "strong_reasoning", "code_first"],
   },
   {
@@ -89,6 +93,7 @@ const providerPresets: Array<
     contextWindow: 200_000,
     inputPricePerMTok: 3,
     outputPricePerMTok: 15,
+    cacheReadPricePerMTok: 0.3,
     tags: ["strong_reasoning", "long_context", "code_first"],
   },
   {
@@ -99,7 +104,19 @@ const providerPresets: Array<
     contextWindow: 1_048_576,
     inputPricePerMTok: 1.25,
     outputPricePerMTok: 10,
+    cacheReadPricePerMTok: 0.125,
     tags: ["long_context", "strong_reasoning", "code_first"],
+  },
+  {
+    name: "Xiaomi MiMo",
+    kind: "mimo",
+    baseUrl: "https://api.mimo-v2.com/v1",
+    model: "mimo-v2.5-pro",
+    contextWindow: 1_048_576,
+    inputPricePerMTok: 0.6,
+    outputPricePerMTok: 2.4,
+    cacheReadPricePerMTok: 0.6,
+    tags: ["strong_reasoning", "long_context", "code_first"],
   },
   {
     name: "DeepSeek",
@@ -109,6 +126,7 @@ const providerPresets: Array<
     contextWindow: 128_000,
     inputPricePerMTok: 0.27,
     outputPricePerMTok: 1.1,
+    cacheReadPricePerMTok: 0.027,
     tags: ["low_cost", "balanced", "code_first"],
   },
   {
@@ -119,6 +137,7 @@ const providerPresets: Array<
     contextWindow: 128_000,
     inputPricePerMTok: 1.6,
     outputPricePerMTok: 6.4,
+    cacheReadPricePerMTok: 0.16,
     tags: ["balanced", "long_context"],
   },
   {
@@ -129,6 +148,7 @@ const providerPresets: Array<
     contextWindow: 32_000,
     inputPricePerMTok: 0,
     outputPricePerMTok: 0,
+    cacheReadPricePerMTok: 0,
     tags: ["privacy_first", "low_cost", "code_first"],
   },
 ];
@@ -180,6 +200,7 @@ export function ProviderHub() {
     setEditingProvider(provider);
     form.setFieldsValue({
       ...provider,
+      cacheReadPricePerMTok: provider.cacheReadPricePerMTok ?? provider.inputPricePerMTok * 0.1,
       apiKey: "",
     });
     setOpen(true);
@@ -219,6 +240,7 @@ export function ProviderHub() {
       contextWindow: value.contextWindow,
       inputPricePerMTok: value.inputPricePerMTok,
       outputPricePerMTok: value.outputPricePerMTok,
+      cacheReadPricePerMTok: value.cacheReadPricePerMTok,
       tags: value.tags,
       enabled: value.enabled,
       maskedKey: maskKey(value.apiKey, editingProvider?.maskedKey),
@@ -361,13 +383,13 @@ export function ProviderHub() {
         type="info"
         message={
           language === "zh"
-            ? "不是只支持 OpenAI 格式：AstraFlow 已内置 OpenAI-compatible、Anthropic Messages、Gemini generateContent 三类 Adapter。"
+              ? "不是只支持 OpenAI 格式：AstraFlow 已内置 OpenAI-compatible、Anthropic Messages、Gemini generateContent 三类 Adapter。"
             : "AstraFlow supports OpenAI-compatible, Anthropic Messages, and Gemini generateContent adapters."
         }
         description={
           language === "zh"
-            ? "DeepSeek、Qwen、Kimi、Zhipu、Ollama 走 OpenAI-compatible；Anthropic 走原生 /v1/messages；Gemini 走原生 generateContent。"
-            : "DeepSeek, Qwen, Kimi, Zhipu, and Ollama use OpenAI-compatible APIs; Anthropic and Gemini use native protocols."
+            ? "小米 MiMo、DeepSeek、Qwen、Kimi、Zhipu、Ollama 走 OpenAI-compatible；Anthropic 走原生 /v1/messages；Gemini 走原生 generateContent。API Key 当前只保留脱敏标记在本地状态，明文不会持久化。"
+            : "Xiaomi MiMo, DeepSeek, Qwen, Kimi, Zhipu, and Ollama use OpenAI-compatible APIs; Anthropic and Gemini use native protocols. Plain API keys are not persisted."
         }
         style={{ marginBottom: 12 }}
       />
@@ -455,6 +477,13 @@ export function ProviderHub() {
               <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
             </Form.Item>
           </Space.Compact>
+          <Form.Item
+            name="cacheReadPricePerMTok"
+            label={language === "zh" ? "缓存命中价格 / 百万 Token" : "Cache Hit / MTok"}
+            rules={[{ required: true }]}
+          >
+            <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
+          </Form.Item>
           <Form.Item name="tags" label={t("policy")} rules={[{ required: true }]}>
             <Select
               mode="multiple"

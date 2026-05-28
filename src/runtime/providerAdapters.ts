@@ -5,7 +5,7 @@ export type ProviderProtocol =
   | "anthropic_messages"
   | "gemini_generate_content";
 
-export type ProviderAuthMode = "bearer" | "x-api-key" | "x-goog-api-key" | "none";
+export type ProviderAuthMode = "bearer" | "api-key" | "x-api-key" | "x-goog-api-key" | "none";
 
 export type ProviderUsage = {
   promptTokens: number;
@@ -31,6 +31,7 @@ type ProviderAdapter = {
 
 const openAICompatibleKinds = new Set<ProviderKind>([
   "openai-compatible",
+  "mimo",
   "deepseek",
   "qwen",
   "kimi",
@@ -56,13 +57,14 @@ const openAIAdapter: ProviderAdapter = {
   description: "OpenAI-compatible /v1/chat/completions",
   buildPingRequest: (provider, apiKey) => ({
     protocol: "openai_chat_completions",
-    authMode: provider.kind === "ollama" ? "none" : "bearer",
+    authMode: provider.kind === "ollama" ? "none" : provider.kind === "mimo" ? "api-key" : "bearer",
     url: joinUrl(provider.baseUrl, "/chat/completions"),
     init: {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+        ...(apiKey && provider.kind === "mimo" ? { "api-key": apiKey } : {}),
+        ...(apiKey && provider.kind !== "mimo" ? { authorization: `Bearer ${apiKey}` } : {}),
       },
       body: jsonBody({
         model: provider.model,

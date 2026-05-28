@@ -15,7 +15,7 @@
 - **Context Inspector**：展示实际进入模型的上下文；只有发生超预算裁剪时才展示“被裁剪内容”。
 - **MCP Center**：支持 stdio、HTTP/SSE 形态的 MCP Server 安装、启用、禁用和权限声明。
 - **Skill Store**：支持从语义一句话推荐并安装 Skill，Skill 通过 Runtime 权限层调用工具。
-- **Provider Hub**：统一配置 OpenAI-compatible、Anthropic、Gemini、DeepSeek、Qwen、Kimi、Zhipu、Ollama 等 Provider。
+- **Provider Hub**：统一配置 OpenAI-compatible、Anthropic、Gemini、小米 MiMo、DeepSeek、Qwen、Kimi、Zhipu、Ollama 等 Provider。
 - **Sandbox & Approval**：按低/中/高风险拆分权限，Shell、删除、密钥读取、部署、Git push 等高风险动作必须审批。
 
 ## 目录结构
@@ -74,17 +74,26 @@ npm run tauri:build
 - 国内外 OpenAI-compatible API：填写 `Base URL`、模型名、价格和 API Key。
 - Anthropic：使用原生 Messages API：`POST /v1/messages`，请求头包含 `x-api-key` 和 `anthropic-version`。
 - Gemini：使用原生 `generateContent`：`POST /v1beta/models/{model}:generateContent`，请求头包含 `x-goog-api-key`。
+- 小米 MiMo：使用 OpenAI-compatible Chat Completions：`POST /v1/chat/completions`，请求头使用 `api-key`。
 - Ollama：本地无需 API Key，可直接测试 `http://localhost:11434/v1`。
 
-API Key 只用于本次保存/测试流程，前端状态只保留脱敏标记。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
+API Key 只用于本次保存/测试流程，**当前版本不会持久化明文 API Key**。前端 Zustand 持久化状态只保存 `maskedKey` 这类脱敏标记，位置是浏览器/WebView 的 `localStorage`。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
 
 Provider Adapter 已拆成独立运行时层：
 
-- **OpenAI Chat Completions Adapter**：OpenAI-compatible、DeepSeek、Qwen、Kimi、Zhipu、Ollama。
+- **OpenAI Chat Completions Adapter**：OpenAI-compatible、小米 MiMo、DeepSeek、Qwen、Kimi、Zhipu、Ollama。
 - **Anthropic Messages Adapter**：Claude 原生接口，Token 统计映射 `input_tokens / output_tokens`。
 - **Gemini generateContent Adapter**：Gemini 原生接口，Token 统计映射 `promptTokenCount / candidatesTokenCount`。
 
 模型名称不硬编码为唯一选择，界面允许用户按 Provider 手动维护模型、上下文长度和价格表。
+
+Token Monitor 会单独统计：
+
+- prompt / completion / embedding Token。
+- cached Token。
+- 缓存命中率：`cachedTokens / (promptTokens + cachedTokens)`。
+- 缓存单独成本：按 Provider 的“缓存命中价格 / 百万 Token”计算。
+- 总成本：普通调用成本 + 缓存成本。
 
 ## 任务执行模式
 
@@ -103,7 +112,7 @@ Provider Adapter 已拆成独立运行时层：
 - **LanceDB vector index**：保存 Profile、Project、Episodic、Procedural 四类向量索引。
 - **Context Compiler**：按“当前任务 > 用户明确输入 > 选中文件/网页 > 相关记忆 > Skill 指令 > 历史摘要”的优先级注入上下文。
 
-敏感信息不进入模型上下文；密钥只进入系统 Keychain。低置信度记忆先进入候选区，用户确认后再固化。
+敏感信息不进入模型上下文；当前版本不持久化明文密钥，产品化桌面端目标是只写入系统 Keychain。低置信度记忆先进入候选区，用户确认后再固化。
 
 记忆记录可以在界面中直接管理：
 

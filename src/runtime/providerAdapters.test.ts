@@ -35,6 +35,25 @@ describe("provider adapters", () => {
     expect(body.messages[0].content).toBe("ping");
   });
 
+  it("builds Xiaomi MiMo OpenAI-compatible requests with api-key auth", () => {
+    const request = buildProviderPingRequest(
+      provider({
+        kind: "mimo",
+        baseUrl: "https://api.mimo-v2.com/v1",
+        model: "mimo-v2.5-pro",
+      }),
+      "mimo-key",
+    );
+    const headers = request.init.headers as Record<string, string>;
+    const body = JSON.parse(String(request.init.body));
+
+    expect(request.protocol).toBe("openai_chat_completions");
+    expect(request.url).toBe("https://api.mimo-v2.com/v1/chat/completions");
+    expect(headers["api-key"]).toBe("mimo-key");
+    expect(headers.authorization).toBeUndefined();
+    expect(body.model).toBe("mimo-v2.5-pro");
+  });
+
   it("builds Anthropic native Messages API requests", () => {
     const request = buildProviderPingRequest(
       provider({
