@@ -10,6 +10,7 @@ import type {
   MemoryRecord,
   ModelPolicy,
   ProviderConfig,
+  PlanStepStatus,
   RuntimeLog,
   SkillManifest,
   TaskAttachment,
@@ -56,6 +57,7 @@ type AgentState = {
   pauseTask: (taskId: string) => void;
   resumeTask: (taskId: string) => void;
   cancelTask: (taskId: string) => void;
+  updatePlanStepStatus: (taskId: string, stepId: string, status: PlanStepStatus) => void;
   addMemory: (memory: MemoryDraft) => MemoryRecord;
   updateMemory: (id: string, patch: Partial<MemoryRecord>) => void;
   deleteMemory: (id: string) => void;
@@ -376,6 +378,44 @@ export const useAgentStore = create<AgentState>()(
       logs: addLog(state.logs, "任务已取消。", "warning", taskId),
     }));
   },
+  updatePlanStepStatus: (taskId, stepId, status) => {
+    set((state) => {
+      const plan = state.plans[taskId];
+      const task = state.tasks.find((item) => item.id === taskId);
+      const step = plan?.steps.find((item) => item.id === stepId);
+
+      if (!plan || !task || !step) {
+        return state;
+      }
+
+      return {
+        plans: {
+          ...state.plans,
+          [taskId]: {
+            ...plan,
+            steps: plan.steps.map((item) =>
+              item.id === stepId
+                ? {
+                    ...item,
+                    status,
+                    outputPreview:
+                      status === "done"
+                        ? item.outputPreview ?? `${item.title} 已由画布操作标记完成。`
+                        : item.outputPreview,
+                  }
+                : item,
+            ),
+          },
+        },
+        logs: addLog(
+          state.logs,
+          `画布操作：${task.title} / ${step.title} 已切换为 ${status}。`,
+          status === "needs_approval" ? "security" : status === "failed" ? "warning" : "info",
+          taskId,
+        ),
+      };
+    });
+  },
   addMemory: (draft) => {
     const id = uuidv4();
     const memory: MemoryRecord = {
@@ -504,7 +544,13 @@ export const useAgentStore = create<AgentState>()(
 
     set((state) => ({
       providers: state.providers.map((item) =>
-        item.id === id ? { ...item, status: result.ok ? "connected" : "failed" } : item,
+        item.id === id
+          ? {
+              ...item,
+              maskedKey: result.maskedKey ?? item.maskedKey,
+              status: result.ok ? "connected" : "failed",
+            }
+          : item,
       ),
       usageEntries: usage ? [usage, ...state.usageEntries] : state.usageEntries,
       logs: addLog(

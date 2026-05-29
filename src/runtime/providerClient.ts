@@ -1,4 +1,5 @@
 import type { ProviderConfig } from "../domain/types";
+import { invokeAstraFlow, isTauriRuntime } from "../desktop/commands";
 import {
   buildProviderPingRequest,
   parseProviderUsage,
@@ -13,6 +14,14 @@ export type ProviderTestResult = {
   promptTokens: number;
   completionTokens: number;
   costUsd: number;
+  maskedKey?: string;
+};
+
+export type ProviderSaveResult = {
+  ok: boolean;
+  message: string;
+  maskedKey: string;
+  storedInKeychain: boolean;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -36,10 +45,44 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
+function maskKey(apiKey?: string, fallback?: string): string {
+  if (!apiKey) {
+    return fallback ?? "未配置";
+  }
+
+  if (apiKey.length <= 8) {
+    return "***";
+  }
+
+  return `${apiKey.slice(0, 3)}...${apiKey.slice(-4)}`;
+}
+
+export async function saveProviderCredential(
+  provider: ProviderConfig,
+  apiKey?: string,
+): Promise<ProviderSaveResult> {
+  if (isTauriRuntime()) {
+    return invokeAstraFlow<ProviderSaveResult>("provider.save", { provider, apiKey });
+  }
+
+  return {
+    ok: true,
+    message: apiKey
+      ? "网页预览模式仅保留脱敏标记；真实桌面版会写入系统钥匙串。"
+      : "未提供新的 API Key。",
+    maskedKey: maskKey(apiKey, provider.maskedKey),
+    storedInKeychain: false,
+  };
+}
+
 export async function testProviderConnection(
   provider: ProviderConfig,
   apiKey?: string,
 ): Promise<ProviderTestResult> {
+  if (isTauriRuntime()) {
+    return invokeAstraFlow<ProviderTestResult>("provider.test", { provider, apiKey });
+  }
+
   const startedAt = performance.now();
   const needsKey = providerNeedsApiKey(provider);
 

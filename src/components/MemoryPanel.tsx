@@ -26,6 +26,7 @@ import {
 } from "antd";
 import { useMemo, useState } from "react";
 import type { MemoryKind, MemoryRecord } from "../domain/types";
+import { isTauriRuntime } from "../desktop/commands";
 import { useI18n } from "../i18n";
 import { useAgentStore } from "../store/useAgentStore";
 
@@ -84,6 +85,7 @@ type MemoryFormValue = {
 
 export function MemoryPanel() {
   const { formatMemoryKind, language, t } = useI18n();
+  const desktopSecrets = isTauriRuntime();
   const [form] = Form.useForm<MemoryFormValue>();
   const memories = useAgentStore((state) => state.memories);
   const addMemory = useAgentStore((state) => state.addMemory);
@@ -215,8 +217,12 @@ export function MemoryPanel() {
               </Space>
               <p>
                 {language === "zh"
-                  ? "记忆元数据进 SQLite，向量索引进 LanceDB；当前版本不持久化明文密钥，Context Compiler 只拿脱敏后的片段。"
-                  : "Metadata goes to SQLite and vectors to LanceDB. Plain secrets are not persisted, and only redacted snippets enter context."}
+                  ? desktopSecrets
+                    ? "记忆元数据进 SQLite，向量索引进 LanceDB；API Key 进系统钥匙串，Context Compiler 只拿脱敏后的片段。"
+                    : "记忆元数据进 SQLite，向量索引进 LanceDB；网页预览不持久化明文密钥，Context Compiler 只拿脱敏后的片段。"
+                  : desktopSecrets
+                    ? "Metadata goes to SQLite and vectors to LanceDB. API keys go to the system keychain, and only redacted snippets enter context."
+                    : "Metadata goes to SQLite and vectors to LanceDB. Web preview does not persist plain secrets, and only redacted snippets enter context."}
               </p>
             </div>
             <div className="memory-policy">

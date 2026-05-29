@@ -18,7 +18,9 @@ import {
 import type { TableColumnsType } from "antd";
 import { useState } from "react";
 import type { ModelPolicy, ProviderConfig } from "../domain/types";
+import { isTauriRuntime } from "../desktop/commands";
 import { useI18n } from "../i18n";
+import { saveProviderCredential } from "../runtime/providerClient";
 import { getProviderProtocolLabel } from "../runtime/providerAdapters";
 import { useAgentStore } from "../store/useAgentStore";
 
@@ -172,6 +174,7 @@ function maskKey(apiKey?: string, fallback?: string): string {
 
 export function ProviderHub() {
   const { formatModelPolicy, formatProviderStatus, language, t } = useI18n();
+  const desktopSecrets = isTauriRuntime();
   const providers = useAgentStore((state) => state.providers);
   const testProvider = useAgentStore((state) => state.testProvider);
   const saveProvider = useAgentStore((state) => state.saveProvider);
@@ -230,7 +233,7 @@ export function ProviderHub() {
       editingProvider.kind !== value.kind ||
       editingProvider.baseUrl !== value.baseUrl ||
       editingProvider.model !== value.model;
-    const provider: ProviderConfig = {
+    const providerDraft: ProviderConfig = {
       id: editingProvider?.id ?? makeProviderId(value.name),
       name: value.name,
       kind: value.kind,
@@ -249,12 +252,26 @@ export function ProviderHub() {
     setSubmitting(true);
 
     try {
+      const credentialResult = await saveProviderCredential(providerDraft, value.apiKey);
+      const provider: ProviderConfig = {
+        ...providerDraft,
+        maskedKey: credentialResult.maskedKey,
+      };
+
       saveProvider(provider);
 
       if (value.apiKey || value.kind === "ollama") {
         await runProviderTest(provider, value.apiKey);
       } else {
-        message.success(language === "zh" ? "配置已保存。为了安全，明文 API Key 不会进入本地状态。" : "Provider saved.");
+        message.success(
+          language === "zh"
+            ? desktopSecrets
+              ? "配置已保存；如已保存过 Key，后续测试会从系统钥匙串读取。"
+              : "配置已保存。为了安全，明文 API Key 不会进入本地状态。"
+            : desktopSecrets
+              ? "Provider saved. Existing keys are read from the system keychain."
+              : "Provider saved.",
+        );
       }
 
       setOpen(false);
@@ -339,7 +356,7 @@ export function ProviderHub() {
             icon={<CloudSyncOutlined />}
             loading={testingProviderId === provider.id}
             onClick={() => {
-              if (provider.kind === "ollama") {
+              if (provider.kind === "ollama" || desktopSecrets) {
                 void runProviderTest(provider);
                 return;
               }
@@ -367,8 +384,12 @@ export function ProviderHub() {
         <Tooltip
           title={
             language === "zh"
-              ? "当前不持久化明文 Key；保存/测试后只保留脱敏标记。"
-              : "Plain keys are not persisted; only masked markers are kept after save/test."
+              ? desktopSecrets
+                ? "桌面版会把明文 Key 写入系统钥匙串；前端只保留脱敏标记。"
+                : "网页预览不会持久化明文 Key；保存/测试后只保留脱敏标记。"
+              : desktopSecrets
+                ? "Desktop stores plain keys in the system keychain; frontend state keeps only masked markers."
+                : "Web preview does not persist plain keys; only masked markers are kept after save/test."
           }
         >
           <Button icon={<PlusOutlined />} onClick={openCreate}>
@@ -481,8 +502,12 @@ export function ProviderHub() {
             <Input.Password
               placeholder={
                 language === "zh"
-                  ? "仅用于本次保存/测试；本地状态只保留脱敏标记"
-                  : "Used only for this save/test; only a masked marker is stored"
+                  ? desktopSecrets
+                    ? "保存后写入系统钥匙串；前端状态只保留脱敏标记"
+                    : "仅用于本次保存/测试；本地状态只保留脱敏标记"
+                  : desktopSecrets
+                    ? "Saved to the system keychain; frontend state keeps only a masked marker"
+                    : "Used only for this save/test; only a masked marker is stored"
               }
             />
           </Form.Item>

@@ -224,6 +224,12 @@ textarea {
   width: min(360px, 100%);
 }
 
+.interactive-canvas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 12px;
+}
+
 .canvas-frame {
   height: 470px;
   overflow: hidden;
@@ -240,6 +246,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(27, 43, 51, 0.08);
+  cursor: pointer;
 }
 
 .flow-node-title {
@@ -260,6 +267,70 @@ textarea {
 
 .flow-node.medium {
   border-left-color: #d99e00;
+}
+
+.flow-node.selected {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.16), 0 12px 26px rgba(27, 43, 51, 0.12);
+}
+
+.canvas-inspector {
+  min-height: 470px;
+  padding: 14px;
+  border: 1px solid #dfe7e9;
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.canvas-inspector-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.canvas-step-description {
+  color: #50636c;
+  line-height: 1.6;
+}
+
+.canvas-step-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.canvas-step-grid > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e0e8eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.canvas-step-grid span {
+  display: block;
+  color: #72848c;
+  font-size: 12px;
+}
+
+.canvas-step-grid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #10181d;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-preview-block {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #e0e8eb;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .context-list {
@@ -450,8 +521,13 @@ textarea {
   .composer-grid,
   .security-band,
   .memory-map,
+  .interactive-canvas,
   .memory-policy-grid {
     grid-template-columns: 1fr;
+  }
+
+  .canvas-inspector {
+    min-height: 0;
   }
 }
 

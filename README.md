@@ -6,7 +6,7 @@
 
 ## 核心能力
 
-- **Agent Canvas**：用可视化节点展示 Planner、Memory、Context、MCP Tool、Skill、Model Call、Result 的执行链路。
+- **Agent Canvas**：用可视化节点展示 Planner、Memory、Context、MCP Tool、Skill、Model Call、Result 的执行链路，并支持点击节点查看输入输出、切换步骤状态、重试、请求审批和复制节点输入。
 - **任务入口**：支持一句话手写任务、计划模式/直接执行切换、工作区文件夹选择、文件上传、图片上传和多模态任务附件。
 - **Task Plan / Coding Plan**：任务开始前生成执行计划；代码类任务会额外生成影响范围、修改策略、验证命令和回滚建议。
 - **Token Plan**：预估上下文大小、模型策略、输入/输出 Token、软预算和硬预算。
@@ -77,7 +77,12 @@ npm run tauri:build
 - 小米 MiMo：使用 OpenAI-compatible Chat Completions：`POST /v1/chat/completions`，请求头使用 `api-key`。
 - Ollama：本地无需 API Key，可直接测试 `http://localhost:11434/v1`。
 
-API Key 只用于本次保存/测试流程，**当前版本不会持久化明文 API Key**。前端 Zustand 持久化状态只保存 `maskedKey` 这类脱敏标记，位置是浏览器/WebView 的 `localStorage`。后续接入完整 Tauri 后，应把密钥写入系统 Keychain，并由本地 Runtime 代理请求，避免浏览器 CORS 与密钥暴露问题。
+桌面端的 API Key 保存和 Provider 连通测试已经迁入 Tauri 后端：
+
+- 明文 API Key 由 Rust command 写入系统钥匙串，macOS 使用 Keychain，Windows 使用系统凭据存储。
+- 前端 Zustand 持久化状态只保存 `maskedKey` 这类脱敏标记，位置是浏览器/WebView 的 `localStorage`。
+- Provider 测试请求由 Tauri 后端发起，前端不直接持有持久化密钥，也不把明文 Key 写入日志或模型上下文。
+- Vite 网页预览模式没有系统钥匙串能力，仅保留脱敏标记，适合界面调试。
 
 Provider Adapter 已拆成独立运行时层：
 
@@ -112,7 +117,7 @@ Token Monitor 会单独统计：
 - **LanceDB vector index**：保存 Profile、Project、Episodic、Procedural 四类向量索引。
 - **Context Compiler**：按“当前任务 > 用户明确输入 > 选中文件/网页 > 相关记忆 > Skill 指令 > 历史摘要”的优先级注入上下文。
 
-敏感信息不进入模型上下文；当前版本不持久化明文密钥，产品化桌面端目标是只写入系统 Keychain。低置信度记忆先进入候选区，用户确认后再固化。
+敏感信息不进入模型上下文；桌面端 API Key 只写入系统钥匙串，网页预览模式不持久化明文密钥。低置信度记忆先进入候选区，用户确认后再固化。
 
 记忆记录可以在界面中直接管理：
 
@@ -152,9 +157,9 @@ npm run tauri:build  # 构建桌面安装包
 
 ## 产品状态
 
-这是一个可运行的产品级前端与本地 Runtime 原型：核心信息架构、交互、状态持久化、Provider 连通测试、Token 监控、Context Inspector、MCP/Skill 安装入口已经完成。后续要继续做成真正可发布的商业桌面应用，建议优先补齐：
+这是一个可运行的产品级前端与本地 Runtime 原型：核心信息架构、交互、状态持久化、可操作 Agent Canvas、Tauri 后端 Provider 测试、系统钥匙串 API Key 保存、Token 监控、Context Inspector、MCP/Skill 安装入口已经完成。后续要继续做成真正可发布的商业桌面应用，建议优先补齐：
 
-- Tauri command 到 SQLite、Keychain、LanceDB 的真实落库。
+- Tauri command 到 SQLite、LanceDB 的真实落库。
 - MCP 进程管理与 HTTP/SSE 会话管理。
 - Docker/Podman 沙箱执行器。
 - 真实 Agent 任务队列、暂停/继续/重试和审批弹窗。
