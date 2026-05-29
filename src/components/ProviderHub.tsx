@@ -367,8 +367,8 @@ export function ProviderHub() {
         <Tooltip
           title={
             language === "zh"
-              ? "首版通过配置表接入，真实密钥进入系统 Keychain"
-              : "This build uses a config table; real secrets are stored in the system Keychain."
+              ? "当前不持久化明文 Key；保存/测试后只保留脱敏标记。"
+              : "Plain keys are not persisted; only masked markers are kept after save/test."
           }
         >
           <Button icon={<PlusOutlined />} onClick={openCreate}>

@@ -18,6 +18,7 @@ import {
   Empty,
   Layout,
   Menu,
+  Skeleton,
   Space,
   Tag,
   Typography,
@@ -25,24 +26,47 @@ import {
 } from "antd";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
-import { useMemo, useState } from "react";
-import { AgentCanvas } from "./components/AgentCanvas";
-import { ContextInspector } from "./components/ContextInspector";
-import { McpSkillCenter } from "./components/McpSkillCenter";
-import { MemoryPanel } from "./components/MemoryPanel";
-import { PlanPanel } from "./components/PlanPanel";
-import { ProviderHub } from "./components/ProviderHub";
-import { RuntimeLogPanel } from "./components/RuntimeLogPanel";
-import { SecurityPanel } from "./components/SecurityPanel";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { StatusStrip } from "./components/StatusStrip";
-import { TaskComposer } from "./components/TaskComposer";
-import { TokenMonitor } from "./components/TokenMonitor";
 import type { TaskStatus } from "./domain/types";
 import { astraFlowCommands, isTauriRuntime } from "./desktop/commands";
 import { I18nProvider, useI18n } from "./i18n";
 import { useAgentStore } from "./store/useAgentStore";
 
 type ViewKey = "overview" | "memory" | "mcp" | "providers" | "usage" | "security";
+
+const AgentCanvas = lazy(() =>
+  import("./components/AgentCanvas").then((module) => ({ default: module.AgentCanvas })),
+);
+const ContextInspector = lazy(() =>
+  import("./components/ContextInspector").then((module) => ({
+    default: module.ContextInspector,
+  })),
+);
+const McpSkillCenter = lazy(() =>
+  import("./components/McpSkillCenter").then((module) => ({ default: module.McpSkillCenter })),
+);
+const MemoryPanel = lazy(() =>
+  import("./components/MemoryPanel").then((module) => ({ default: module.MemoryPanel })),
+);
+const PlanPanel = lazy(() =>
+  import("./components/PlanPanel").then((module) => ({ default: module.PlanPanel })),
+);
+const ProviderHub = lazy(() =>
+  import("./components/ProviderHub").then((module) => ({ default: module.ProviderHub })),
+);
+const RuntimeLogPanel = lazy(() =>
+  import("./components/RuntimeLogPanel").then((module) => ({ default: module.RuntimeLogPanel })),
+);
+const SecurityPanel = lazy(() =>
+  import("./components/SecurityPanel").then((module) => ({ default: module.SecurityPanel })),
+);
+const TaskComposer = lazy(() =>
+  import("./components/TaskComposer").then((module) => ({ default: module.TaskComposer })),
+);
+const TokenMonitor = lazy(() =>
+  import("./components/TokenMonitor").then((module) => ({ default: module.TokenMonitor })),
+);
 
 const statusColor: Record<TaskStatus, string> = {
   planned: "gold",
@@ -52,6 +76,14 @@ const statusColor: Record<TaskStatus, string> = {
   done: "green",
   failed: "red",
 };
+
+function LoadingPanel() {
+  return (
+    <Card className="panel">
+      <Skeleton active paragraph={{ rows: 6 }} title={false} />
+    </Card>
+  );
+}
 
 function AppContent() {
   const { formatRisk, formatTaskStatus, language, t, toggleLanguage } = useI18n();
@@ -195,7 +227,11 @@ function AppContent() {
           providers={providers}
           usageEntries={usageEntries}
         />
-        {tasks.length ? mainContent : <Empty description={t("noTask")} />}
+        {tasks.length ? (
+          <Suspense fallback={<LoadingPanel />}>{mainContent}</Suspense>
+        ) : (
+          <Empty description={t("noTask")} />
+        )}
         <div className="stack" style={{ marginTop: 16 }}>
           <Card
             className="panel"

@@ -106,6 +106,23 @@ function selectProvider(providers: ProviderConfig[], modelPolicy: ModelPolicy): 
   );
 }
 
+function normalizePersistedProvider(provider: ProviderConfig): ProviderConfig {
+  const maskedKey = provider.maskedKey?.trim();
+  const isDemoKey = maskedKey?.toLowerCase().includes("demo") ?? false;
+  const hasStoredCredential =
+    provider.kind === "ollama" ||
+    Boolean(maskedKey && maskedKey !== "未配置" && !isDemoKey);
+
+  return {
+    ...provider,
+    maskedKey: isDemoKey ? "未配置" : provider.maskedKey,
+    status:
+      provider.status === "connected" && !hasStoredCredential
+        ? "untested"
+        : provider.status,
+  };
+}
+
 const demoTask: AgentTask = {
   id: "task-demo-1",
   title: "生成跨平台自动化周报工作流",
@@ -510,15 +527,20 @@ export const useAgentStore = create<AgentState>()(
 }),
     {
       name: "astraflow-agent-state-v1",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const saved = persisted as Partial<AgentState> | undefined;
         const savedProviders = saved?.providers ?? [];
-        const providerMap = new Map(savedProviders.map((provider) => [provider.id, provider]));
+        const providerMap = new Map(
+          savedProviders.map((provider) => [provider.id, normalizePersistedProvider(provider)]),
+        );
 
         for (const provider of defaultProviders) {
-          providerMap.set(provider.id, { ...provider, ...providerMap.get(provider.id) });
+          providerMap.set(
+            provider.id,
+            normalizePersistedProvider({ ...provider, ...providerMap.get(provider.id) }),
+          );
         }
 
         return {

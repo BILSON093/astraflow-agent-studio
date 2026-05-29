@@ -124,8 +124,8 @@ export const defaultProviders: ProviderConfig[] = [
     cacheReadPricePerMTok: 0.027,
     tags: ["low_cost", "balanced", "code_first"],
     enabled: true,
-    maskedKey: "sk-...demo",
-    status: "connected",
+    maskedKey: "未配置",
+    status: "untested",
   },
   {
     id: "qwen",
@@ -139,8 +139,8 @@ export const defaultProviders: ProviderConfig[] = [
     cacheReadPricePerMTok: 0.16,
     tags: ["balanced", "long_context"],
     enabled: true,
-    maskedKey: "sk-...demo",
-    status: "connected",
+    maskedKey: "未配置",
+    status: "untested",
   },
   {
     id: "kimi",

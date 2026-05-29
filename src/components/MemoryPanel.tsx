@@ -215,8 +215,8 @@ export function MemoryPanel() {
               </Space>
               <p>
                 {language === "zh"
-                  ? "记忆元数据进 SQLite，向量索引进 LanceDB，密钥只进系统 Keychain；Context Compiler 只拿脱敏后的片段。"
-                  : "Metadata goes to SQLite, vectors to LanceDB, secrets to Keychain, and only redacted snippets enter context."}
+                  ? "记忆元数据进 SQLite，向量索引进 LanceDB；当前版本不持久化明文密钥，Context Compiler 只拿脱敏后的片段。"
+                  : "Metadata goes to SQLite and vectors to LanceDB. Plain secrets are not persisted, and only redacted snippets enter context."}
               </p>
             </div>
             <div className="memory-policy">
