@@ -267,7 +267,7 @@ export const builtInMcpServers: McpServerManifest[] = [
     command: "npx @modelcontextprotocol/server-filesystem",
     permissions: [permissions["fs.read"], permissions["fs.write"]],
     enabled: true,
-    health: "healthy",
+    health: "offline",
     installedAt: new Date().toISOString(),
   },
   {

@@ -19,9 +19,9 @@ export type Language = "zh" | "en";
 
 const dictionaries = {
   zh: {
-    addMcp: "安装 MCP",
+    addMcp: "生成 MCP 配置",
     addProvider: "添加供应商",
-    addSkill: "安装 Skill",
+    addSkill: "生成 Skill 配置",
     agentCanvas: "Agent 可视化画布",
     approvalRun: "审批并模拟执行",
     budgetHard: "硬预算",
@@ -80,9 +80,9 @@ const dictionaries = {
     workspacePlaceholder: "工作区路径，可选",
   },
   en: {
-    addMcp: "Install MCP",
+    addMcp: "Generate MCP Config",
     addProvider: "Add Provider",
-    addSkill: "Install Skill",
+    addSkill: "Generate Skill Config",
     agentCanvas: "Agent Canvas",
     approvalRun: "Approve & Run Simulation",
     budgetHard: "Hard Budget",

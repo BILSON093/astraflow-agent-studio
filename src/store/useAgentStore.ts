@@ -477,7 +477,7 @@ export const useAgentStore = create<AgentState>()(
   installSkill: (skill) => {
     set((state) => ({
       skills: [{ ...skill, installedAt: now(), enabled: false }, ...state.skills],
-      logs: addLog(state.logs, `已安装 Skill：${skill.name}。`),
+      logs: addLog(state.logs, `已生成 Skill 配置草稿：${skill.name}。`),
     }));
   },
   enableMcp: (name, enabled) => {
@@ -494,7 +494,7 @@ export const useAgentStore = create<AgentState>()(
         { ...server, installedAt: now(), enabled: false, health: "offline" },
         ...state.mcpServers,
       ],
-      logs: addLog(state.logs, `已安装 MCP Server：${server.name}。`),
+      logs: addLog(state.logs, `已生成 MCP Server 配置草稿：${server.name}。`),
     }));
   },
   testProvider: async (id, apiKey) => {

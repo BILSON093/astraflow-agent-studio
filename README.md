@@ -130,8 +130,8 @@ MCP Center 面向标准 Model Context Protocol 扩展：
 
 - 支持 stdio。
 - 支持 HTTP/SSE。
-- 支持安装、启用、禁用。
-- 支持健康状态展示。
+- 支持生成配置草稿、保存预期启用状态。
+- 支持连接状态占位展示；真实健康探测将在 Runtime 接入后生效。
 - 支持权限声明。
 - 支持从一句话生成 MCP Server 配置草稿。
 

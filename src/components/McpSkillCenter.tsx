@@ -1,5 +1,5 @@
 import { ApiOutlined, AppstoreAddOutlined, ToolOutlined } from "@ant-design/icons";
-import { Button, Card, Input, Modal, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
+import { Alert, Button, Card, Input, Modal, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useState } from "react";
 import type { McpServerManifest, SkillManifest } from "../domain/types";
@@ -98,7 +98,7 @@ function inferMcpManifest(prompt: string): McpServerManifest {
       command: "npx -y @modelcontextprotocol/server-filesystem",
       permissions: [permissions["fs.read"], permissions["fs.write"]],
       enabled: true,
-      health: "healthy",
+      health: "offline",
     };
   }
 
@@ -215,7 +215,7 @@ export function McpSkillCenter() {
       render: (transport: McpServerManifest["transport"]) => <Tag color="blue">{transport}</Tag>,
     },
     {
-      title: t("health"),
+      title: language === "zh" ? "连接状态" : "Connection",
       dataIndex: "health",
       key: "health",
       render: (health: McpServerManifest["health"]) => {
@@ -256,6 +256,21 @@ export function McpSkillCenter() {
         </Space>
       }
     >
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message={
+          language === "zh"
+            ? "当前入口生成本地配置草稿"
+            : "These actions generate local configuration drafts"
+        }
+        description={
+          language === "zh"
+            ? "启用开关用于保存预期状态。真实进程启动、连接探测和权限审批将在本地 Runtime 接入后生效。"
+            : "Enable switches save intended state. Process startup, connection probes, and approval enforcement will activate after Runtime integration."
+        }
+      />
       <Tabs
         items={[
           {
@@ -300,16 +315,16 @@ export function McpSkillCenter() {
         title={
           installTarget === "skill"
             ? language === "zh"
-              ? "一句话安装 Skill"
-              : "Install Skill from one sentence"
+              ? "一句话生成 Skill 配置"
+              : "Generate Skill config from one sentence"
             : language === "zh"
-              ? "一句话安装 MCP"
-              : "Install MCP from one sentence"
+              ? "一句话生成 MCP 配置"
+              : "Generate MCP config from one sentence"
         }
         open={installOpen}
         onCancel={() => setInstallOpen(false)}
         onOk={submitInstall}
-        okText={language === "zh" ? "生成并安装" : "Generate & Install"}
+        okText={language === "zh" ? "生成配置" : "Generate Config"}
         cancelText={language === "zh" ? "取消" : "Cancel"}
       >
         <Input.TextArea
