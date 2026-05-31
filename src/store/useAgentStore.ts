@@ -28,6 +28,12 @@ import { compileContext } from "../runtime/contextEngine";
 import { createExecutionPlan, inferRiskLevel } from "../runtime/planner";
 import { testProviderConnection, type ProviderTestResult } from "../runtime/providerClient";
 import { calculateCacheCost, calculateCost } from "../runtime/usage";
+import {
+  persistMemory,
+  registerMcp,
+  removePersistedMemory,
+  setMcpEnabled,
+} from "../desktop/runtimeClient";
 
 type CreateTaskInput = {
   input: string;
@@ -430,6 +436,7 @@ export const useAgentStore = create<AgentState>()(
       memories: [memory, ...state.memories],
       logs: addLog(state.logs, `已添加 ${draft.kind} 记忆：${draft.source}。`),
     }));
+    void persistMemory(memory);
 
     return memory;
   },
@@ -440,6 +447,10 @@ export const useAgentStore = create<AgentState>()(
       ),
       logs: addLog(state.logs, `记忆 ${id} 已更新。`),
     }));
+    const memory = get().memories.find((item) => item.id === id);
+    if (memory) {
+      void persistMemory(memory);
+    }
   },
   deleteMemory: (id) => {
     set((state) => {
@@ -454,6 +465,7 @@ export const useAgentStore = create<AgentState>()(
         ),
       };
     });
+    void removePersistedMemory(id);
   },
   searchMemory: (query, kind) => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -481,12 +493,36 @@ export const useAgentStore = create<AgentState>()(
     }));
   },
   enableMcp: (name, enabled) => {
+    const server = get().mcpServers.find((item) => item.name === name);
     set((state) => ({
       mcpServers: state.mcpServers.map((server) =>
         server.name === name ? { ...server, enabled } : server,
       ),
       logs: addLog(state.logs, `MCP Server ${name} 已${enabled ? "启用" : "停用"}。`),
     }));
+    if (server) {
+      void setMcpEnabled(server, enabled)
+        .then((result) => {
+          set((state) => ({
+            mcpServers: state.mcpServers.map((item) =>
+              item.name === name ? { ...item, health: result.health } : item,
+            ),
+            logs: addLog(state.logs, `MCP Server ${name}：${result.message}`),
+          }));
+        })
+        .catch((error: unknown) => {
+          set((state) => ({
+            mcpServers: state.mcpServers.map((item) =>
+              item.name === name ? { ...item, enabled: false, health: "offline" } : item,
+            ),
+            logs: addLog(
+              state.logs,
+              `MCP Server ${name} 启停失败：${error instanceof Error ? error.message : "未知错误"}`,
+              "warning",
+            ),
+          }));
+        });
+    }
   },
   installMcp: (server) => {
     set((state) => ({
@@ -496,6 +532,7 @@ export const useAgentStore = create<AgentState>()(
       ],
       logs: addLog(state.logs, `已生成 MCP Server 配置草稿：${server.name}。`),
     }));
+    void registerMcp(server);
   },
   testProvider: async (id, apiKey) => {
     const provider = get().providers.find((item) => item.id === id);

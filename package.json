@@ -17,6 +17,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
     "@ant-design/x": "^2.7.0",
+    "@lancedb/lancedb": "^0.30.0",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@xyflow/react": "^12.10.2",

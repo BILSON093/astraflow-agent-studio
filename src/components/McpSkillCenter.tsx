@@ -3,6 +3,7 @@ import { Alert, Button, Card, Input, Modal, Space, Switch, Table, Tabs, Tag, Typ
 import type { TableColumnsType } from "antd";
 import { useState } from "react";
 import type { McpServerManifest, SkillManifest } from "../domain/types";
+import { isTauriRuntime } from "../desktop/commands";
 import { useI18n } from "../i18n";
 import { permissions, useAgentStore } from "../store/useAgentStore";
 
@@ -114,6 +115,7 @@ function inferMcpManifest(prompt: string): McpServerManifest {
 
 export function McpSkillCenter() {
   const { formatHealth, formatRisk, language, t } = useI18n();
+  const desktopRuntime = isTauriRuntime();
   const skills = useAgentStore((state) => state.skills);
   const mcpServers = useAgentStore((state) => state.mcpServers);
   const enableSkill = useAgentStore((state) => state.enableSkill);
@@ -262,13 +264,21 @@ export function McpSkillCenter() {
         style={{ marginBottom: 12 }}
         message={
           language === "zh"
-            ? "当前入口生成本地配置草稿"
-            : "These actions generate local configuration drafts"
+            ? desktopRuntime
+              ? "桌面 Runtime 已接管 MCP 会话"
+              : "当前入口生成本地配置草稿"
+            : desktopRuntime
+              ? "Desktop Runtime manages MCP sessions"
+              : "These actions generate local configuration drafts"
         }
         description={
           language === "zh"
-            ? "启用开关用于保存预期状态。真实进程启动、连接探测和权限审批将在本地 Runtime 接入后生效。"
-            : "Enable switches save intended state. Process startup, connection probes, and approval enforcement will activate after Runtime integration."
+            ? desktopRuntime
+              ? "stdio Server 会由本机子进程启动；HTTP/SSE Server 会执行端点探测。网页预览不会获得这些系统权限。"
+              : "网页预览只保存预期状态。真实进程启动、连接探测和权限审批仅在桌面版生效。"
+            : desktopRuntime
+              ? "stdio servers start as local child processes; HTTP/SSE servers receive endpoint probes. Web preview has no system permissions."
+              : "Web preview only saves intended state. Process startup, probes, and approvals are desktop-only."
         }
       />
       <Tabs

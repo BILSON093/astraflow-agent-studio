@@ -3,6 +3,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Instant;
+use tauri::Manager;
+
+mod runtime;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use keyring::Entry;
@@ -429,26 +432,6 @@ fn provider_delete_secret(payload: Option<Value>) -> Result<ProviderDeleteSecret
 }
 
 #[tauri::command]
-fn memory_search(payload: Option<Value>) -> Value {
-    ok("memory.search", payload)
-}
-
-#[tauri::command]
-fn memory_update(payload: Option<Value>) -> Value {
-    ok("memory.update", payload)
-}
-
-#[tauri::command]
-fn mcp_install(payload: Option<Value>) -> Value {
-    ok("mcp.install", payload)
-}
-
-#[tauri::command]
-fn mcp_enable(payload: Option<Value>) -> Value {
-    ok("mcp.enable", payload)
-}
-
-#[tauri::command]
 fn skill_install(payload: Option<Value>) -> Value {
     ok("skill.install", payload)
 }
@@ -466,6 +449,14 @@ fn usage_report(payload: Option<Value>) -> Value {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|error| format!("解析应用数据目录失败：{error}"))?;
+            app.manage(runtime::RuntimeState::new(data_dir)?);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             task_create,
             task_approve_plan,
@@ -475,10 +466,14 @@ fn main() {
             provider_test,
             provider_save,
             provider_delete_secret,
-            memory_search,
-            memory_update,
-            mcp_install,
-            mcp_enable,
+            runtime::runtime_status,
+            runtime::memory_search,
+            runtime::memory_update,
+            runtime::memory_delete,
+            runtime::mcp_install,
+            runtime::mcp_enable,
+            runtime::mcp_status,
+            runtime::shell_execute,
             skill_install,
             skill_enable,
             usage_report

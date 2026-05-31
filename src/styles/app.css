@@ -518,6 +518,23 @@ textarea {
   background: #fbfcfc;
 }
 
+.restricted-shell {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e4eaed;
+}
+
+.shell-output {
+  max-height: 220px;
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  color: #d5e5df;
+  border-radius: 8px;
+  background: #172026;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 1180px) {
   .dashboard-grid,
   .status-strip,

@@ -183,7 +183,7 @@ export function MemoryPanel() {
           <Space size={6}>
             <DeploymentUnitOutlined />
             <Typography.Text type="secondary">
-              {language === "zh" ? "本地状态管理" : "Local state managed"}
+              {language === "zh" ? "本地 Runtime 托管" : "Local Runtime managed"}
             </Typography.Text>
           </Space>
         }
@@ -218,10 +218,10 @@ export function MemoryPanel() {
               <p>
                 {language === "zh"
                   ? desktopSecrets
-                    ? "当前记录保存在本地状态；SQLite 元数据和 LanceDB 向量索引是下一阶段落库目标。API Key 已进入系统钥匙串，Context Compiler 只拿脱敏后的片段。"
+                    ? "桌面版记忆元数据同步写入 SQLite，Node sidecar 提供 LanceDB 向量索引。API Key 保存在系统钥匙串，Context Compiler 只拿脱敏后的片段。"
                     : "当前记录保存在本地状态；SQLite 元数据和 LanceDB 向量索引是下一阶段落库目标。网页预览不持久化明文密钥。"
                   : desktopSecrets
-                    ? "Records currently use local state. SQLite metadata and LanceDB vectors are the next persistence target. API keys already use the system keychain."
+                    ? "Desktop memory metadata syncs to SQLite, while the Node sidecar provides the LanceDB vector index. API keys use the system keychain."
                     : "Records currently use local state. SQLite metadata and LanceDB vectors are the next persistence target. Web preview does not persist plain secrets."}
               </p>
             </div>
@@ -272,7 +272,13 @@ export function MemoryPanel() {
             <Space size={6}>
               <DatabaseOutlined />
               <Typography.Text type="secondary">
-                {language === "zh" ? "本地状态 · 向量索引待接入" : "Local state · vector index pending"}
+                {language === "zh"
+                  ? desktopSecrets
+                    ? "SQLite 元数据 · LanceDB 向量索引"
+                    : "网页预览 · 本地状态"
+                  : desktopSecrets
+                    ? "SQLite metadata · LanceDB vector index"
+                    : "Web preview · local state"}
               </Typography.Text>
             </Space>
             <Button icon={<PlusOutlined />} type="primary" onClick={openCreateMemory}>

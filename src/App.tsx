@@ -132,7 +132,7 @@ function AppContent() {
     if (view === "security") {
       return (
         <div className="stack">
-          <SecurityPanel plan={activePlan} />
+          <SecurityPanel key={activeTask?.id} plan={activePlan} task={activeTask} />
           <ContextInspector report={contextReport} />
         </div>
       );

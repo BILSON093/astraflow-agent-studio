@@ -7,7 +7,8 @@
 - 桌面端：Tauri 2
 - 前端：React + TypeScript + Vite
 - UI：Ant Design / ECharts / React Flow
-- 本地运行层：Rust Tauri commands + TypeScript runtime 原型
+- 本地运行层：Rust Tauri Runtime + TypeScript sidecar
+- 本地数据：SQLite 元数据账本 + LanceDB 向量记忆
 - 密钥：桌面端使用系统钥匙串，前端只保存脱敏标记
 
 ## 产品截图
@@ -109,7 +110,7 @@ Provider 连通测试成功后，也会写入一条 usage entry，方便验证�
 - 启用状态。
 - embedding id。
 
-界面中可以直接添加、编辑、禁用、删除记忆。禁用后的记忆不会参与检索和上下文注入。
+界面中可以直接添加、编辑、禁用、删除记忆。桌面版会把元数据同步写入 SQLite；Node sidecar 使用嵌入式 LanceDB 保存向量并执行 cosine 相似度检索。当前本地确定性向量生成器是可替换适配层，后续可以接入模型 embedding API。
 
 ### Context Inspector
 
@@ -130,12 +131,13 @@ MCP Center 面向标准 Model Context Protocol 扩展：
 
 - 支持 stdio。
 - 支持 HTTP/SSE。
-- 支持生成配置草稿、保存预期启用状态。
-- 支持连接状态占位展示；真实健康探测将在 Runtime 接入后生效。
+- 支持生成配置草稿、保存启用状态。
+- 桌面版支持启动和停止白名单内的 stdio MCP 子进程。
+- 桌面版支持 HTTP/SSE MCP 端点探测。
 - 支持权限声明。
 - 支持从一句话生成 MCP Server 配置草稿。
 
-MCP Server 不直接获得系统权限，后续会统一走本地 Runtime 的权限层和审批层。
+MCP Server 不直接获得系统权限，启动和探测统一经过本地 Runtime。工具级权限审批仍需要继续补齐。
 
 ### Skill Store
 
@@ -185,7 +187,7 @@ Vite 网页预览模式没有系统钥匙串能力，只保留脱敏标记，适
 - 中风险：写文件、调用外部 API，需要任务级授权。
 - 高风险：删除文件、执行 Shell、访问密钥、部署、Git push，必须人工审批。
 
-当前版本已经有风险识别、审批状态、运行日志和可操作画布；后续可以接入 Docker/Podman 沙箱执行器。
+当前版本已经有风险识别、审批状态、运行日志、可操作画布和本地受限 Shell 执行器。执行器要求人工审批，限定工作区目录，使用命令白名单，并禁止 `git push/reset/clean` 和 `npm publish`。后续可以接入 Docker/Podman 容器沙箱。
 
 ## 架构设计
 
@@ -197,17 +199,17 @@ Vite 网页预览模式没有系统钥匙串能力，只保留脱敏标记，适
                        │ Tauri invoke
 ┌──────────────────────▼───────────────────────┐
 │              Tauri 2 Native Layer             │
-│ Provider Test / Keychain / Dialog / Commands  │
+│ Provider / Keychain / SQLite / MCP / Shell     │
 └──────────────────────┬───────────────────────┘
                        │
 ┌──────────────────────▼───────────────────────┐
-│          Local Agent Runtime Prototype        │
-│ Planner / Context Compiler / Usage / Security │
+│             Local Agent Runtime               │
+│ Planner / Context / Usage / Audit / Approval  │
 └──────────────────────┬───────────────────────┘
                        │
 ┌──────────────────────▼───────────────────────┐
 │          Local Data & Extension Layer         │
-│ SQLite target / LanceDB target / MCP / Skill  │
+│ SQLite ledger / LanceDB vectors / MCP / Skill │
 └──────────────────────────────────────────────┘
 ```
 
@@ -219,12 +221,16 @@ Vite 网页预览模式没有系统钥匙串能力，只保留脱敏标记，适
 - Planner。
 - Context Compiler。
 - Memory CRUD。
+- SQLite 记忆元数据、MCP 配置和审计事件落库。
+- LanceDB sidecar 向量记忆写入、检索和删除。
+- MCP stdio 子进程启停与 HTTP/SSE 端点探测。
+- 人工审批后的受限 Shell 白名单执行器。
 - Skill / MCP Manifest 校验。
 - Usage aggregation。
 - 风险识别。
 - 可视化 Agent Canvas 操作。
 
-当前 Memory CRUD 使用本地状态持久化。SQLite、LanceDB、MCP 进程管理和真实任务队列是下一阶段重点。
+前端仍保留 Zustand 状态用于即时 UI；桌面版会同步写入本地 Runtime。任务队列中断恢复、工具级审批和容器沙箱是下一阶段重点。
 
 ## 目录结构
 
@@ -314,6 +320,10 @@ cp -R "src-tauri/target/release/bundle/macos/AstraFlow Agent Studio.app" "/Appli
 
 如果 DMG 打包脚本在本机环境失败，可以先使用 `.app` 产物安装运行；release 二进制和 `.app` 仍然是有效的桌面应用产物。
 
+### Windows 安装包验证
+
+Tauri 官方说明 `.msi` 必须在 Windows 上由 WiX 生成。仓库已加入 `.github/workflows/windows-installer.yml`，每次推送 `main` 会在 `windows-latest` 构建并上传 NSIS `-setup.exe` 和 MSI 安装包作为 workflow artifacts。
+
 ## 常用脚本
 
 ```bash
@@ -373,12 +383,17 @@ npx tauri build --no-bundle
 - Tauri Provider 后端测试。
 - 系统钥匙串 API Key 保存。
 - macOS `.app` 打包和安装。
+- SQLite 记忆元数据、MCP 配置和审计事件落库。
+- LanceDB sidecar 向量记忆检索。
+- MCP stdio 子进程管理和 HTTP/SSE 探测。
+- 受限 Shell 执行器。
+- Windows NSIS / MSI CI 构建验证。
 
 下一阶段建议：
 
-- SQLite 真实任务、日志、配置落库。
-- LanceDB 真实向量记忆检索。
-- MCP stdio / HTTP/SSE 真实会话管理。
+- SQLite 任务、Usage 和完整运行日志落库。
+- LanceDB 接入模型 embedding API 与索引维护策略。
+- MCP JSON-RPC 初始化、工具发现、调用和断线重连。
 - Skill 包下载、校验和版本管理。
 - Docker/Podman 沙箱执行器。
 - 真实 Agent 任务队列和中断恢复。
