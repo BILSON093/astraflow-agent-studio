@@ -14,19 +14,19 @@
 
 ### 工作台总览
 
-![工作台总览](docs/screenshots/dashboard-overview.jpg)
+![工作台总览](docs/screenshots/dashboard-overview.png)
 
 ### 可操作 Agent Canvas
 
-![可操作 Agent Canvas](docs/screenshots/agent-canvas-actions.jpg)
+![可操作 Agent Canvas](docs/screenshots/agent-canvas-actions.png)
 
 ### 模型接入中心
 
-![模型接入中心](docs/screenshots/provider-hub.jpg)
+![模型接入中心](docs/screenshots/provider-hub.png)
 
 ### 记忆系统
 
-![记忆系统](docs/screenshots/memory-system.jpg)
+![记忆系统](docs/screenshots/memory-system.png)
 
 ## 核心能力
 
