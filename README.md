@@ -170,6 +170,7 @@ Provider Hub 统一管理国内外模型 API，支持：
 - 明文 API Key 由 Rust command 写入系统钥匙串。
 - macOS 使用 Keychain。
 - Windows 使用系统凭据存储。
+- 已保存的 API Key 可以在模型接入中心删除，桌面端会同步清理系统钥匙串。
 - 前端 Zustand 状态只保存 `maskedKey`。
 - 真实 Provider 测试由 Tauri 后端发请求。
 - API Key 不写入日志，也不进入模型上下文。
@@ -223,7 +224,7 @@ Vite 网页预览模式没有系统钥匙串能力，只保留脱敏标记，适
 - 风险识别。
 - 可视化 Agent Canvas 操作。
 
-SQLite、LanceDB、MCP 进程管理和真实任务队列是下一阶段重点。
+当前 Memory CRUD 使用本地状态持久化。SQLite、LanceDB、MCP 进程管理和真实任务队列是下一阶段重点。
 
 ## 目录结构
 

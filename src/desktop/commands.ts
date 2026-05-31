@@ -8,6 +8,7 @@ export type AstraFlowCommand =
   | "task.cancel"
   | "provider.test"
   | "provider.save"
+  | "provider.deleteSecret"
   | "memory.search"
   | "memory.update"
   | "mcp.install"
@@ -24,6 +25,7 @@ const nativeCommandMap: Record<AstraFlowCommand, string> = {
   "task.cancel": "task_cancel",
   "provider.test": "provider_test",
   "provider.save": "provider_save",
+  "provider.deleteSecret": "provider_delete_secret",
   "memory.search": "memory_search",
   "memory.update": "memory_update",
   "mcp.install": "mcp_install",

@@ -24,6 +24,12 @@ export type ProviderSaveResult = {
   storedInKeychain: boolean;
 };
 
+export type ProviderDeleteSecretResult = {
+  ok: boolean;
+  message: string;
+  maskedKey: string;
+};
+
 type JsonRecord = Record<string, unknown>;
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -72,6 +78,22 @@ export async function saveProviderCredential(
       : "未提供新的 API Key。",
     maskedKey: maskKey(apiKey, provider.maskedKey),
     storedInKeychain: false,
+  };
+}
+
+export async function deleteProviderCredential(
+  provider: ProviderConfig,
+): Promise<ProviderDeleteSecretResult> {
+  if (isTauriRuntime()) {
+    return invokeAstraFlow<ProviderDeleteSecretResult>("provider.deleteSecret", {
+      providerId: provider.id,
+    });
+  }
+
+  return {
+    ok: true,
+    message: "网页预览模式已清除脱敏标记。",
+    maskedKey: provider.kind === "ollama" ? "本地无需密钥" : "未配置",
   };
 }
 

@@ -1,4 +1,4 @@
-import { CloudSyncOutlined, PlusOutlined } from "@ant-design/icons";
+import { CloudSyncOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -7,6 +7,7 @@ import {
   InputNumber,
   message,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
@@ -20,7 +21,7 @@ import { useState } from "react";
 import type { ModelPolicy, ProviderConfig } from "../domain/types";
 import { isTauriRuntime } from "../desktop/commands";
 import { useI18n } from "../i18n";
-import { saveProviderCredential } from "../runtime/providerClient";
+import { deleteProviderCredential, saveProviderCredential } from "../runtime/providerClient";
 import { getProviderProtocolLabel } from "../runtime/providerAdapters";
 import { useAgentStore } from "../store/useAgentStore";
 
@@ -183,6 +184,7 @@ export function ProviderHub() {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [testingProviderId, setTestingProviderId] = useState<string>();
+  const [deletingProviderId, setDeletingProviderId] = useState<string>();
 
   const applyPreset = (preset: (typeof providerPresets)[number]) => {
     form.setFieldsValue({
@@ -280,6 +282,29 @@ export function ProviderHub() {
     }
   };
 
+  const deleteProviderSecret = async (provider: ProviderConfig) => {
+    setDeletingProviderId(provider.id);
+
+    try {
+      const result = await deleteProviderCredential(provider);
+
+      saveProvider({
+        ...provider,
+        maskedKey: result.maskedKey,
+        status: "untested",
+      });
+      message.success(
+        language === "zh"
+          ? desktopSecrets
+            ? "API Key 已从系统钥匙串删除。"
+            : "网页预览中的脱敏标记已清除。"
+          : result.message,
+      );
+    } finally {
+      setDeletingProviderId(undefined);
+    }
+  };
+
   const columns: TableColumnsType<ProviderConfig> = [
     {
       title: t("provider"),
@@ -371,6 +396,27 @@ export function ProviderHub() {
           >
             {provider.kind === "ollama" ? t("test") : language === "zh" ? "填 Key 测试" : "Test with key"}
           </Button>
+          {provider.kind !== "ollama" && provider.maskedKey !== "未配置" ? (
+            <Popconfirm
+              title={language === "zh" ? "删除已保存的 API Key？" : "Delete saved API key?"}
+              description={
+                language === "zh"
+                  ? "桌面版会同时从系统钥匙串删除，之后需要重新填写才能测试。"
+                  : "Desktop will remove it from the system keychain."
+              }
+              okText={language === "zh" ? "删除" : "Delete"}
+              cancelText={language === "zh" ? "取消" : "Cancel"}
+              onConfirm={() => void deleteProviderSecret(provider)}
+            >
+              <Button
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                loading={deletingProviderId === provider.id}
+                aria-label={language === "zh" ? "删除 API Key" : "Delete API key"}
+              />
+            </Popconfirm>
+          ) : null}
         </Space>
       ),
     },

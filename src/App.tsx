@@ -26,7 +26,7 @@ import {
 } from "antd";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { StatusStrip } from "./components/StatusStrip";
 import type { TaskStatus } from "./domain/types";
 import { astraFlowCommands, isTauriRuntime } from "./desktop/commands";
@@ -88,6 +88,7 @@ function LoadingPanel() {
 function AppContent() {
   const { formatRisk, formatTaskStatus, language, t, toggleLanguage } = useI18n();
   const [view, setView] = useState<ViewKey>("overview");
+  const contentRef = useRef<HTMLDivElement>(null);
   const tasks = useAgentStore((state) => state.tasks);
   const plans = useAgentStore((state) => state.plans);
   const memories = useAgentStore((state) => state.memories);
@@ -102,6 +103,14 @@ function AppContent() {
   const activePlan = activeTask ? plans[activeTask.id] : undefined;
   const contextReport = activeTask ? contextReports[activeTask.id] : undefined;
   const runtimeMode = isTauriRuntime() ? t("desktopRuntime") : t("webRuntime");
+  const selectView = (nextView: ViewKey) => {
+    setView(nextView);
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      window.requestAnimationFrame(() => {
+        contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  };
 
   const mainContent = useMemo(() => {
     if (view === "memory") {
@@ -160,7 +169,7 @@ function AppContent() {
         <Menu
           mode="inline"
           selectedKeys={[view]}
-          onSelect={(item) => setView(item.key as ViewKey)}
+          onSelect={(item) => selectView(item.key as ViewKey)}
           items={[
             { key: "overview", icon: <DashboardOutlined />, label: t("dashboard") },
             { key: "memory", icon: <DatabaseOutlined />, label: t("memorySystem") },
@@ -215,23 +224,27 @@ function AppContent() {
               key={item.value}
               size="small"
               type={view === item.value ? "primary" : "default"}
-              onClick={() => setView(item.value as ViewKey)}
+              onClick={() => selectView(item.value as ViewKey)}
             >
               {item.label}
             </Button>
           ))}
         </div>
-        <StatusStrip
-          taskCount={tasks.length}
-          memoryCount={memories.length}
-          providers={providers}
-          usageEntries={usageEntries}
-        />
-        {tasks.length ? (
-          <Suspense fallback={<LoadingPanel />}>{mainContent}</Suspense>
-        ) : (
-          <Empty description={t("noTask")} />
-        )}
+        <div className={view === "overview" ? "" : "section-status-strip"}>
+          <StatusStrip
+            taskCount={tasks.length}
+            memoryCount={memories.length}
+            providers={providers}
+            usageEntries={usageEntries}
+          />
+        </div>
+        <div className="view-content-anchor" ref={contentRef}>
+          {tasks.length ? (
+            <Suspense fallback={<LoadingPanel />}>{mainContent}</Suspense>
+          ) : (
+            <Empty description={t("noTask")} />
+          )}
+        </div>
         <div className="stack" style={{ marginTop: 16 }}>
           <Card
             className="panel"

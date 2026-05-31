@@ -183,7 +183,7 @@ export function MemoryPanel() {
           <Space size={6}>
             <DeploymentUnitOutlined />
             <Typography.Text type="secondary">
-              {language === "zh" ? "本地 Runtime 托管" : "Local Runtime managed"}
+              {language === "zh" ? "本地状态管理" : "Local state managed"}
             </Typography.Text>
           </Space>
         }
@@ -218,11 +218,11 @@ export function MemoryPanel() {
               <p>
                 {language === "zh"
                   ? desktopSecrets
-                    ? "记忆元数据进 SQLite，向量索引进 LanceDB；API Key 进系统钥匙串，Context Compiler 只拿脱敏后的片段。"
-                    : "记忆元数据进 SQLite，向量索引进 LanceDB；网页预览不持久化明文密钥，Context Compiler 只拿脱敏后的片段。"
+                    ? "当前记录保存在本地状态；SQLite 元数据和 LanceDB 向量索引是下一阶段落库目标。API Key 已进入系统钥匙串，Context Compiler 只拿脱敏后的片段。"
+                    : "当前记录保存在本地状态；SQLite 元数据和 LanceDB 向量索引是下一阶段落库目标。网页预览不持久化明文密钥。"
                   : desktopSecrets
-                    ? "Metadata goes to SQLite and vectors to LanceDB. API keys go to the system keychain, and only redacted snippets enter context."
-                    : "Metadata goes to SQLite and vectors to LanceDB. Web preview does not persist plain secrets, and only redacted snippets enter context."}
+                    ? "Records currently use local state. SQLite metadata and LanceDB vectors are the next persistence target. API keys already use the system keychain."
+                    : "Records currently use local state. SQLite metadata and LanceDB vectors are the next persistence target. Web preview does not persist plain secrets."}
               </p>
             </div>
             <div className="memory-policy">
@@ -272,7 +272,7 @@ export function MemoryPanel() {
             <Space size={6}>
               <DatabaseOutlined />
               <Typography.Text type="secondary">
-                {language === "zh" ? "LanceDB 就绪" : "LanceDB-ready"}
+                {language === "zh" ? "本地状态 · 向量索引待接入" : "Local state · vector index pending"}
               </Typography.Text>
             </Space>
             <Button icon={<PlusOutlined />} type="primary" onClick={openCreateMemory}>

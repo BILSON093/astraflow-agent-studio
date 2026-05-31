@@ -38,8 +38,8 @@ export function SecurityPanel({ plan }: Props) {
         }
         description={
           language === "zh"
-            ? "高风险命令优先进入 Docker/Podman 沙箱；未检测到容器运行时时，回退到受限本地执行器。"
-            : "High-risk commands prefer Docker/Podman sandbox execution; without a container runtime, AstraFlow falls back to a restricted local executor."
+            ? "当前版本已实现风险分级和人工审批；Docker/Podman 沙箱探测、受限执行器和真实命令运行将在下一阶段接入。"
+            : "This build implements risk grading and human approval. Docker/Podman detection, restricted execution, and real command runs are next-stage work."
         }
       />
       <div className="security-band" style={{ marginTop: 12 }}>

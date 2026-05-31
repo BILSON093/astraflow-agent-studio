@@ -57,6 +57,20 @@ struct ProviderSaveResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct ProviderDeleteSecretResult {
+    ok: bool,
+    message: String,
+    masked_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderDeleteSecretPayload {
+    provider_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ProviderUsage {
     prompt_tokens: u64,
     completion_tokens: u64,
@@ -111,6 +125,19 @@ fn load_provider_key(provider_id: &str) -> Result<Option<String>, String> {
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn load_provider_key(_provider_id: &str) -> Result<Option<String>, String> {
     Ok(None)
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn delete_provider_key(provider_id: &str) -> Result<(), String> {
+    match keychain_entry(provider_id)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(format!("删除 API Key 失败：{error}")),
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn delete_provider_key(_provider_id: &str) -> Result<(), String> {
+    Ok(())
 }
 
 fn mask_key(api_key: &str) -> String {
@@ -387,6 +414,21 @@ fn provider_save(payload: Option<Value>) -> Result<ProviderSaveResult, String> {
 }
 
 #[tauri::command]
+fn provider_delete_secret(payload: Option<Value>) -> Result<ProviderDeleteSecretResult, String> {
+    let payload = payload.ok_or_else(|| "缺少 Provider payload。".to_string())?;
+    let payload: ProviderDeleteSecretPayload = serde_json::from_value(payload)
+        .map_err(|error| format!("Provider payload 格式错误：{error}"))?;
+
+    delete_provider_key(&payload.provider_id)?;
+
+    Ok(ProviderDeleteSecretResult {
+        ok: true,
+        message: "API Key 已从系统钥匙串删除。".to_string(),
+        masked_key: "未配置".to_string(),
+    })
+}
+
+#[tauri::command]
 fn memory_search(payload: Option<Value>) -> Value {
     ok("memory.search", payload)
 }
@@ -432,6 +474,7 @@ fn main() {
             task_cancel,
             provider_test,
             provider_save,
+            provider_delete_secret,
             memory_search,
             memory_update,
             mcp_install,

@@ -21,6 +21,7 @@ function createTaskFromPayload(payload: Record<string, unknown> = {}): AgentTask
     title: input.length > 24 ? `${input.slice(0, 24)}...` : input,
     input,
     workspace: typeof payload.workspace === "string" ? payload.workspace : undefined,
+    executionMode: "plan",
     status: "planned",
     riskLevel: inferRiskLevel(input),
     createdAt: now(),
