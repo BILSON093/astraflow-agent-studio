@@ -8,9 +8,11 @@ on:
 jobs:
   windows-installer:
     runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -18,8 +20,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test
-      - uses: tauri-apps/tauri-action@v0
+      - run: npm run tauri:build -- --bundles nsis,msi
+      - uses: actions/upload-artifact@v4
         with:
-          args: --bundles nsis,msi
-          uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: "[name]-[version]-[platform]-[arch]-[bundle]"
+          name: AstraFlow-Agent-Studio-Windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/msi/*.msi
