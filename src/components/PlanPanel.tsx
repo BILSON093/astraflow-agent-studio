@@ -76,22 +76,22 @@ export function PlanPanel({ task, plan }: Props) {
               : "plan"}
         </Descriptions.Item>
         <Descriptions.Item label={t("modelPolicy")}>
-          {formatModelPolicy(plan.estimatedTokenPlan.modelPolicy)}
+          {formatModelPolicy(plan.estimatedTokenBudgetEstimate.modelPolicy)}
         </Descriptions.Item>
         <Descriptions.Item label={language === "zh" ? "预计 Token" : "Estimated Token"}>
-          {plan.estimatedTokenPlan.maxTokens.toLocaleString()}
+          {plan.estimatedTokenBudgetEstimate.maxTokens.toLocaleString()}
         </Descriptions.Item>
         <Descriptions.Item label={language === "zh" ? "预计成本" : "Estimated Cost"}>
-          ${plan.estimatedTokenPlan.estimatedCostUsd.toFixed(4)}
+          ${plan.estimatedTokenBudgetEstimate.estimatedCostUsd.toFixed(4)}
         </Descriptions.Item>
       </Descriptions>
 
-      {plan.codingPlan ? (
+      {plan.codeChangePlan ? (
         <Alert
           type="info"
           style={{ marginTop: 12 }}
-          message="Coding Plan"
-          description={`${plan.codingPlan.strategy} 验证：${plan.codingPlan.verification.join(" / ")}`}
+          message={language === "zh" ? "代码变更预览" : "Code Change Preview"}
+          description={`${plan.codeChangePlan.strategy} 验证：${plan.codeChangePlan.verification.join(" / ")}`}
         />
       ) : null}
 

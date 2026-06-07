@@ -29,10 +29,19 @@ import { createExecutionPlan, inferRiskLevel } from "../runtime/planner";
 import { testProviderConnection, type ProviderTestResult } from "../runtime/providerClient";
 import { calculateCacheCost, calculateCost } from "../runtime/usage";
 import {
+  listPersistedRuntimeLogs,
+  listPersistedTasks,
+  listPersistedUsage,
   persistMemory,
+  persistPermissionAudit,
+  persistRuntimeLog,
+  persistTaskCheckpoint,
+  persistUsageEntry,
   registerMcp,
   removePersistedMemory,
+  restoreInterruptedTasks,
   setMcpEnabled,
+  upsertAgentJob,
 } from "../desktop/runtimeClient";
 
 type CreateTaskInput = {
@@ -74,6 +83,7 @@ type AgentState = {
   installMcp: (server: McpServerManifest) => void;
   testProvider: (id: string, apiKey?: string) => Promise<ProviderTestResult>;
   saveProvider: (provider: ProviderConfig) => void;
+  recoverInterruptedTasks: () => Promise<number>;
 };
 
 function now(): string {
@@ -86,16 +96,15 @@ function addLog(
   level: RuntimeLog["level"] = "info",
   taskId?: string,
 ): RuntimeLog[] {
-  return [
-    {
-      id: uuidv4(),
-      taskId,
-      level,
-      message,
-      createdAt: now(),
-    },
-    ...logs,
-  ].slice(0, 80);
+  const log = {
+    id: uuidv4(),
+    taskId,
+    level,
+    message,
+    createdAt: now(),
+  };
+  void persistRuntimeLog(log);
+  return [log, ...logs].slice(0, 80);
 }
 
 function redactSecret(message: string, secret?: string): string {
@@ -246,24 +255,24 @@ export const useAgentStore = create<AgentState>()(
       skills: get().skills,
       historySummary: "最近的任务偏好：先生成计划，再等待审批，最后写入报告。",
       selectedArtifacts: selectedArtifacts.length ? selectedArtifacts : undefined,
-      maxTokens: Math.min(plan.estimatedTokenPlan.maxTokens, 10_000),
+      maxTokens: Math.min(plan.estimatedTokenBudgetEstimate.maxTokens, 10_000),
     });
-    const provider = selectProvider(get().providers, plan.estimatedTokenPlan.modelPolicy);
+    const provider = selectProvider(get().providers, plan.estimatedTokenBudgetEstimate.modelPolicy);
     const autoUsage: UsageEntry | undefined = shouldAutoExecute
       ? {
           id: uuidv4(),
           taskId: task.id,
           providerId: provider.id,
           model: provider.model,
-          promptTokens: plan.estimatedTokenPlan.estimatedInputTokens,
-          completionTokens: Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.64),
+          promptTokens: plan.estimatedTokenBudgetEstimate.estimatedInputTokens,
+          completionTokens: Math.round(plan.estimatedTokenBudgetEstimate.estimatedOutputTokens * 0.64),
           embeddingTokens: attachments.length ? 760 : 420,
           cachedTokens: 1_000,
           cacheCostUsd: calculateCacheCost(provider, 1_000),
           costUsd: calculateCost(
             provider,
-            plan.estimatedTokenPlan.estimatedInputTokens,
-            Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.64),
+            plan.estimatedTokenBudgetEstimate.estimatedInputTokens,
+            Math.round(plan.estimatedTokenBudgetEstimate.estimatedOutputTokens * 0.64),
             attachments.length ? 760 : 420,
           ),
           createdAt: now(),
@@ -301,6 +310,20 @@ export const useAgentStore = create<AgentState>()(
         task.id,
       ),
     }));
+    void persistTaskCheckpoint(task, executablePlan);
+    void upsertAgentJob({
+      id: `job-${task.id}`,
+      taskId: task.id,
+      status: shouldAutoExecute ? "done" : shouldBlockForApproval ? "paused" : "queued",
+      cursorStepId: executablePlan.steps[0]?.id,
+      failureReason: shouldBlockForApproval ? "等待高风险权限审批" : undefined,
+      retryCount: 0,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+    });
+    if (autoUsage) {
+      void persistUsageEntry(autoUsage);
+    }
 
     return task;
   },
@@ -313,21 +336,21 @@ export const useAgentStore = create<AgentState>()(
       return;
     }
 
-    const provider = selectProvider(state.providers, plan.estimatedTokenPlan.modelPolicy);
+    const provider = selectProvider(state.providers, plan.estimatedTokenBudgetEstimate.modelPolicy);
     const usage: UsageEntry = {
       id: uuidv4(),
       taskId,
       providerId: provider.id,
       model: provider.model,
-      promptTokens: plan.estimatedTokenPlan.estimatedInputTokens,
-      completionTokens: Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.72),
+      promptTokens: plan.estimatedTokenBudgetEstimate.estimatedInputTokens,
+      completionTokens: Math.round(plan.estimatedTokenBudgetEstimate.estimatedOutputTokens * 0.72),
       embeddingTokens: 620,
       cachedTokens: 1_400,
       cacheCostUsd: calculateCacheCost(provider, 1_400),
       costUsd: calculateCost(
         provider,
-        plan.estimatedTokenPlan.estimatedInputTokens,
-        Math.round(plan.estimatedTokenPlan.estimatedOutputTokens * 0.72),
+        plan.estimatedTokenBudgetEstimate.estimatedInputTokens,
+        Math.round(plan.estimatedTokenBudgetEstimate.estimatedOutputTokens * 0.72),
         620,
       ),
       createdAt: now(),
@@ -359,6 +382,29 @@ export const useAgentStore = create<AgentState>()(
         taskId,
       ),
     }));
+    const completedTask = get().tasks.find((item) => item.id === taskId);
+    if (completedTask) {
+      void persistTaskCheckpoint(completedTask, get().plans[taskId]);
+      void upsertAgentJob({
+        id: `job-${taskId}`,
+        taskId,
+        status: "done",
+        cursorStepId: plan.steps.at(-1)?.id,
+        retryCount: 0,
+        createdAt: task.createdAt,
+        updatedAt: completedTask.updatedAt,
+      });
+    }
+    void persistPermissionAudit({
+      id: uuidv4(),
+      taskId,
+      actor: "user",
+      permissionId: "task.approvePlan",
+      resource: task.title,
+      decision: "approved",
+      createdAt: now(),
+    });
+    void persistUsageEntry(usage);
   },
   pauseTask: (taskId) => {
     set((state) => ({
@@ -367,6 +413,19 @@ export const useAgentStore = create<AgentState>()(
       ),
       logs: addLog(state.logs, "任务已暂停。", "warning", taskId),
     }));
+    const pausedTask = get().tasks.find((task) => task.id === taskId);
+    if (pausedTask) {
+      void persistTaskCheckpoint(pausedTask, get().plans[taskId]);
+      void upsertAgentJob({
+        id: `job-${taskId}`,
+        taskId,
+        status: "paused",
+        cursorStepId: get().plans[taskId]?.steps.find((step) => step.status !== "done")?.id,
+        retryCount: 0,
+        createdAt: pausedTask.createdAt,
+        updatedAt: pausedTask.updatedAt,
+      });
+    }
   },
   resumeTask: (taskId) => {
     set((state) => ({
@@ -375,6 +434,19 @@ export const useAgentStore = create<AgentState>()(
       ),
       logs: addLog(state.logs, "任务已继续执行。", "info", taskId),
     }));
+    const resumedTask = get().tasks.find((task) => task.id === taskId);
+    if (resumedTask) {
+      void persistTaskCheckpoint(resumedTask, get().plans[taskId]);
+      void upsertAgentJob({
+        id: `job-${taskId}`,
+        taskId,
+        status: "running",
+        cursorStepId: get().plans[taskId]?.steps.find((step) => step.status !== "done")?.id,
+        retryCount: 0,
+        createdAt: resumedTask.createdAt,
+        updatedAt: resumedTask.updatedAt,
+      });
+    }
   },
   cancelTask: (taskId) => {
     set((state) => ({
@@ -383,6 +455,19 @@ export const useAgentStore = create<AgentState>()(
       ),
       logs: addLog(state.logs, "任务已取消。", "warning", taskId),
     }));
+    const cancelledTask = get().tasks.find((task) => task.id === taskId);
+    if (cancelledTask) {
+      void persistTaskCheckpoint(cancelledTask, get().plans[taskId]);
+      void upsertAgentJob({
+        id: `job-${taskId}`,
+        taskId,
+        status: "cancelled",
+        failureReason: "用户取消任务",
+        retryCount: 0,
+        createdAt: cancelledTask.createdAt,
+        updatedAt: cancelledTask.updatedAt,
+      });
+    }
   },
   updatePlanStepStatus: (taskId, stepId, status) => {
     set((state) => {
@@ -596,6 +681,9 @@ export const useAgentStore = create<AgentState>()(
         result.ok ? "info" : "warning",
       ),
     }));
+    if (usage) {
+      void persistUsageEntry(usage);
+    }
 
     return result;
   },
@@ -606,6 +694,58 @@ export const useAgentStore = create<AgentState>()(
         : [provider, ...state.providers],
       logs: addLog(state.logs, `Provider ${provider.name} 已保存，API Key 仅保留脱敏标记。`),
     }));
+  },
+  recoverInterruptedTasks: async () => {
+    const [restored, persistedTasks, persistedUsage, persistedLogs] = await Promise.all([
+      restoreInterruptedTasks(),
+      listPersistedTasks(),
+      listPersistedUsage(),
+      listPersistedRuntimeLogs(),
+    ]);
+    if (!restored.length && !persistedTasks.length && !persistedUsage.length && !persistedLogs.length) {
+      return 0;
+    }
+    set((state) => {
+      const taskMap = new Map(state.tasks.map((task) => [task.id, task]));
+      const plans = { ...state.plans };
+      for (const record of persistedTasks) {
+        taskMap.set(record.id, record.task);
+        if (record.plan) {
+          plans[record.id] = record.plan;
+        }
+      }
+      for (const checkpoint of restored) {
+        taskMap.set(checkpoint.id, checkpoint.task);
+        if (checkpoint.plan) {
+          plans[checkpoint.id] = checkpoint.plan;
+        }
+      }
+      const usageMap = new Map(state.usageEntries.map((entry) => [entry.id, entry]));
+      for (const entry of persistedUsage) {
+        usageMap.set(entry.id, entry);
+      }
+      const logMap = new Map(state.logs.map((log) => [log.id, log]));
+      for (const log of persistedLogs) {
+        logMap.set(log.id, log);
+      }
+      const restoredCount = Math.max(restored.length, persistedTasks.length);
+      return {
+        tasks: Array.from(taskMap.values()).sort((left, right) =>
+          right.updatedAt.localeCompare(left.updatedAt),
+        ),
+        plans,
+        usageEntries: Array.from(usageMap.values()).sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt),
+        ),
+        logs: addLog(
+          Array.from(logMap.values()).sort((left, right) =>
+            right.createdAt.localeCompare(left.createdAt),
+          ),
+          `已从 SQLite 恢复 ${restoredCount} 个任务、${persistedUsage.length} 条 Usage、${persistedLogs.length} 条运行日志。`,
+        ),
+      };
+    });
+    return Math.max(restored.length, persistedTasks.length);
   },
 }),
     {

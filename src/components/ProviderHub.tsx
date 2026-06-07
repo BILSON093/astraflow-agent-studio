@@ -38,6 +38,8 @@ type ProviderFormValue = {
   tags: ModelPolicy[];
   apiKey?: string;
   enabled: boolean;
+  tokenPlanName?: string;
+  codingPlanName?: string;
 };
 
 const providerKinds: ProviderConfig["kind"][] = [
@@ -206,6 +208,8 @@ export function ProviderHub() {
       ...provider,
       cacheReadPricePerMTok: provider.cacheReadPricePerMTok ?? provider.inputPricePerMTok * 0.1,
       apiKey: "",
+      tokenPlanName: provider.monthlyPlans?.find((plan) => plan.kind === "token_plan")?.name,
+      codingPlanName: provider.monthlyPlans?.find((plan) => plan.kind === "coding_plan")?.name,
     });
     setOpen(true);
   };
@@ -249,6 +253,10 @@ export function ProviderHub() {
       enabled: value.enabled,
       maskedKey: maskKey(value.apiKey, editingProvider?.maskedKey),
       status: value.apiKey || connectionChanged ? "untested" : editingProvider?.status ?? "untested",
+      monthlyPlans: [
+        value.tokenPlanName ? { kind: "token_plan" as const, name: value.tokenPlanName } : undefined,
+        value.codingPlanName ? { kind: "coding_plan" as const, name: value.codingPlanName } : undefined,
+      ].filter((plan): plan is NonNullable<typeof plan> => Boolean(plan)),
     };
 
     setSubmitting(true);
@@ -341,6 +349,20 @@ export function ProviderHub() {
           {tags.map((tag) => (
             <Tag key={tag}>{formatModelPolicy(tag)}</Tag>
           ))}
+        </Space>
+      ),
+    },
+    {
+      title: language === "zh" ? "月度会员" : "Monthly Plans",
+      key: "monthlyPlans",
+      render: (_, provider) => (
+        <Space size={4} wrap>
+          {(provider.monthlyPlans ?? []).map((plan) => (
+            <Tag key={`${plan.kind}-${plan.name}`} color={plan.kind === "coding_plan" ? "purple" : "cyan"}>
+              {plan.kind === "coding_plan" ? "Coding Plan" : "Token Plan"}: {plan.name}
+            </Tag>
+          ))}
+          {!provider.monthlyPlans?.length ? <Typography.Text type="secondary">-</Typography.Text> : null}
         </Space>
       ),
     },
@@ -449,7 +471,7 @@ export function ProviderHub() {
         columns={columns}
         dataSource={providers}
         pagination={false}
-        scroll={{ x: 1180 }}
+        scroll={{ x: 1360 }}
       />
       <Modal
         title={editingProvider ? (language === "zh" ? "编辑模型供应商" : "Edit Provider") : t("addProvider")}
@@ -492,6 +514,22 @@ export function ProviderHub() {
                   value: kind,
                 }))}
               />
+            </Form.Item>
+          </Space.Compact>
+          <Space.Compact block>
+            <Form.Item
+              name="tokenPlanName"
+              label={language === "zh" ? "Token Plan 月度会员" : "Token Plan monthly membership"}
+              style={{ width: "50%" }}
+            >
+              <Input placeholder={language === "zh" ? "厂商会员名称，可选" : "Vendor plan name, optional"} />
+            </Form.Item>
+            <Form.Item
+              name="codingPlanName"
+              label={language === "zh" ? "Coding Plan 月度会员" : "Coding Plan monthly membership"}
+              style={{ width: "50%" }}
+            >
+              <Input placeholder={language === "zh" ? "厂商会员名称，可选" : "Vendor plan name, optional"} />
             </Form.Item>
           </Space.Compact>
           <Form.Item name="baseUrl" label="Base URL" rules={[{ required: true }, { type: "url" }]}>

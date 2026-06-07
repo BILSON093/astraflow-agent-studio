@@ -190,7 +190,7 @@ export function TaskComposer() {
   const applyCodingPlan = () => {
     const text =
       language === "zh"
-        ? "检查当前工作区，生成代码任务计划，列出影响文件、修改步骤、验证命令和回滚方式。"
+        ? "检查当前工作区，生成代码变更预览，列出影响文件、修改步骤、验证命令和回滚方式。"
         : "Inspect the current workspace and create a code task plan with affected files, steps, verification commands, and rollback notes.";
     setInput(text);
     submitTask(text, "code_first", "plan");
@@ -312,7 +312,7 @@ export function TaskComposer() {
           </Space>
           <Space wrap>
             <Button icon={<CodeOutlined />} onClick={applyCodingPlan}>
-              {language === "zh" ? "代码任务计划" : "Code Task Plan"}
+              {language === "zh" ? "代码变更预览" : "Code Change Preview"}
             </Button>
             <Button
               type="primary"

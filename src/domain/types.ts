@@ -81,7 +81,7 @@ export type PlanStep = {
   outputPreview?: string;
 };
 
-export type TokenPlan = {
+export type TokenBudgetEstimate = {
   maxTokens: number;
   softBudgetUsd?: number;
   hardBudgetUsd?: number;
@@ -95,8 +95,8 @@ export type ExecutionPlan = {
   taskId: string;
   steps: PlanStep[];
   requiredPermissions: Permission[];
-  estimatedTokenPlan: TokenPlan;
-  codingPlan?: {
+  estimatedTokenBudgetEstimate: TokenBudgetEstimate;
+  codeChangePlan?: {
     affectedAreas: string[];
     strategy: string;
     verification: string[];
@@ -164,6 +164,15 @@ export type ProviderConfig = {
   enabled: boolean;
   maskedKey?: string;
   status: "untested" | "connected" | "failed";
+  monthlyPlans?: ProviderMonthlyPlan[];
+};
+
+export type ProviderMonthlyPlan = {
+  kind: "token_plan" | "coding_plan";
+  name: string;
+  monthlyPrice?: number;
+  currency?: string;
+  notes?: string;
 };
 
 export type UsageEntry = {

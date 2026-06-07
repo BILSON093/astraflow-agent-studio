@@ -226,7 +226,7 @@ export const seedMemories: MemoryRecord[] = [
   {
     id: "mem-procedural-1",
     kind: "procedural",
-    content: "代码类任务默认先读取项目结构，再生成 Coding Plan，最后运行验证命令。",
+    content: "代码类任务默认先读取项目结构，再生成代码变更预览，最后运行验证命令。",
     source: "built-in-skill",
     confidence: 0.9,
     enabled: true,

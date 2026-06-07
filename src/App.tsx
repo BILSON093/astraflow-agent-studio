@@ -26,7 +26,7 @@ import {
 } from "antd";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { StatusStrip } from "./components/StatusStrip";
 import type { TaskStatus } from "./domain/types";
 import { astraFlowCommands, isTauriRuntime } from "./desktop/commands";
@@ -98,6 +98,11 @@ function AppContent() {
   const contextReports = useAgentStore((state) => state.contextReports);
   const activeTaskId = useAgentStore((state) => state.activeTaskId);
   const createTask = useAgentStore((state) => state.createTask);
+  const recoverInterruptedTasks = useAgentStore((state) => state.recoverInterruptedTasks);
+
+  useEffect(() => {
+    void recoverInterruptedTasks();
+  }, [recoverInterruptedTasks]);
 
   const activeTask = tasks.find((task) => task.id === activeTaskId) ?? tasks[0];
   const activePlan = activeTask ? plans[activeTask.id] : undefined;
@@ -200,7 +205,7 @@ function AppContent() {
               icon={<CodeOutlined />}
               onClick={() =>
                 createTask({
-                  input: "检查当前工作区，生成代码任务计划，并估算运行测试所需 Token 成本。",
+                  input: "检查当前工作区，生成代码变更预览，并估算运行测试所需 Token 成本。",
                   modelPolicy: "code_first",
                   softBudgetUsd: 1,
                   hardBudgetUsd: 2.5,

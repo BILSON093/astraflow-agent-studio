@@ -57,7 +57,7 @@ async function handleRequest(request: RuntimeRequest): Promise<unknown> {
       task,
       memories: seedMemories,
       skills: builtInSkills,
-      maxTokens: Math.min(plan.estimatedTokenPlan.maxTokens, 10_000),
+      maxTokens: Math.min(plan.estimatedTokenBudgetEstimate.maxTokens, 10_000),
     });
 
     return { task, plan, context };

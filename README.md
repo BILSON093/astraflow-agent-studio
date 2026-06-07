@@ -44,7 +44,7 @@ Agent Canvas 使用 React Flow 展示一次 Agent 执行链路，包括 Planner�
 
 任务入口采用聊天式输入，支持一句话描述任务，并支持两种执行模式：
 
-- 计划模式：生成 Task Plan / Coding Plan，等待用户审批后继续执行。
+- 计划模式：生成执行计划和代码变更预览，等待用户审批后继续执行。
 - 直接执行：低/中风险任务可自动模拟执行，高风险任务会自动进入审批状态。
 
 任务入口还支持：
@@ -56,7 +56,7 @@ Agent Canvas 使用 React Flow 展示一次 Agent 执行链路，包括 Planner�
 - 软预算和硬预算配置。
 - 模型路由策略选择。
 
-### Task Plan / Coding Plan
+### Execution Plan / Code Change Preview
 
 每个任务会先生成结构化执行计划：
 
@@ -66,7 +66,7 @@ Agent Canvas 使用 React Flow 展示一次 Agent 执行链路，包括 Planner�
 - 预计工具调用。
 - 预计 Token 和成本。
 
-如果任务涉及代码，会额外生成 Coding Plan：
+如果任务涉及代码，会额外生成代码变更预览：
 
 - 影响区域。
 - 修改策略。
@@ -75,7 +75,9 @@ Agent Canvas 使用 React Flow 展示一次 Agent 执行链路，包括 Planner�
 
 这样可以把“Agent 想做什么”提前暴露给用户，避免黑盒自动化。
 
-### Token Plan / Token Monitor
+### Provider Monthly Plans / Token Monitor
+
+`Token Plan` 和 `Coding Plan` 专指模型 API 厂商提供的月度会员方案，不是 Agent 内部生成的任务规划。Provider Hub 可以为每个厂商维护这两类会员名称；内部执行前的成本判断统一称为 Token 预算估算。
 
 Token Monitor 用来做成本治理，支持按任务、模型、Provider 聚合：
 
@@ -132,8 +134,9 @@ MCP Center 面向标准 Model Context Protocol 扩展：
 - 支持 stdio。
 - 支持 HTTP/SSE。
 - 支持生成配置草稿、保存启用状态。
-- 桌面版支持启动和停止白名单内的 stdio MCP 子进程。
-- 桌面版支持 HTTP/SSE MCP 端点探测。
+- 桌面版支持启动和停止白名单内的 stdio MCP 子进程，并执行 JSON-RPC `initialize`。
+- 桌面版支持通过 JSON-RPC `tools/list` 发现工具、通过 `tools/call` 调用工具。
+- 桌面版支持 HTTP/SSE MCP 端点探测和 JSON-RPC 调用。
 - 支持权限声明。
 - 支持从一句话生成 MCP Server 配置草稿。
 
@@ -165,7 +168,7 @@ Provider Hub 统一管理国内外模型 API，支持：
 - Zhipu。
 - Ollama。
 
-模型名称、Base URL、上下文长度、价格表和路由标签都可以由用户维护，不硬编码为唯一选择。
+模型名称、Base URL、上下文长度、价格表、路由标签，以及厂商提供的 Token Plan / Coding Plan 月度会员名称都可以由用户维护，不硬编码为唯一选择。
 
 桌面端的 Provider 测试和 API Key 保存已经迁入 Tauri 后端：
 
@@ -221,16 +224,21 @@ Vite 网页预览模式没有系统钥匙串能力，只保留脱敏标记，适
 - Planner。
 - Context Compiler。
 - Memory CRUD。
-- SQLite 记忆元数据、MCP 配置和审计事件落库。
+- SQLite 任务、Usage、运行日志、记忆元数据、MCP 配置、结构化权限审计和审计事件落库。
 - LanceDB sidecar 向量记忆写入、检索和删除。
-- MCP stdio 子进程启停与 HTTP/SSE 端点探测。
+- MCP JSON-RPC 初始化、工具发现、工具调用、stdio 断线重连、子进程启停与 HTTP/SSE 端点探测。
+- SQLite schema migration 版本表、任务 checkpoint、完整任务记录、Usage/日志查询和可恢复任务读取。
+- 轻量 Agent Job / Step 队列表，用于后续真实执行器接入。
+- Tauri 托管 sidecar 启动、退出清理、状态读取和重启。
 - 人工审批后的受限 Shell 白名单执行器。
 - Skill / MCP Manifest 校验。
 - Usage aggregation。
 - 风险识别。
 - 可视化 Agent Canvas 操作。
 
-前端仍保留 Zustand 状态用于即时 UI；桌面版会同步写入本地 Runtime。任务队列中断恢复、工具级审批和容器沙箱是下一阶段重点。
+前端仍保留 Zustand 状态用于即时 UI；桌面版会同步写入本地 Runtime。任务创建、审批、暂停、继续和取消会同步写入 SQLite checkpoint、任务表和 Agent Job 表，Usage、运行日志与权限审批审计也会写入 SQLite。Runtime 可以读取任务、Usage、日志和未完成 checkpoint 用于中断恢复。工具级审批 UI、恢复任务的完整执行调度和容器沙箱仍需继续补齐。
+
+当前 Tauri Runtime 已接管源码开发环境中的 sidecar 生命周期。正式安装包若要脱离源码目录运行，还需要把 sidecar 构建为可分发资源并随安装包发布。
 
 ## 目录结构
 
@@ -331,7 +339,7 @@ npm run dev          # 启动 Vite 预览
 npm run build        # TypeScript + Vite 构建
 npm run lint         # ESLint 检查
 npm run test         # 运行 Vitest 单元测试
-npm run runtime:dev  # 启动 Node.js sidecar 原型
+npm run runtime:dev  # 单独调试 Node.js sidecar；桌面开发模式由 Tauri 自动托管
 npm run tauri:dev    # 启动 Tauri 桌面端
 npm run tauri:build  # 构建桌面安装包
 ```
@@ -343,7 +351,7 @@ npm run tauri:build  # 构建桌面安装包
 - Provider Adapter 请求格式。
 - Anthropic / Gemini / OpenAI-compatible usage 解析。
 - Context Compiler 排序、裁剪和预算逻辑。
-- Planner 风险识别和 Coding Plan 生成。
+- Planner 风险识别、Token 预算估算和代码变更预览生成。
 - Memory 来源追踪和检索逻辑。
 - Skill Manifest 校验。
 - MCP Manifest 校验。
@@ -370,7 +378,7 @@ npx tauri build --no-bundle
 - 计划模式 / 直接执行切换。
 - 工作区选择。
 - 文件和图片上传。
-- Task Plan / Coding Plan。
+- 执行计划、Token 预算估算和代码变更预览。
 - 可操作 Agent Canvas。
 - Context Inspector。
 - Memory CRUD。
@@ -383,23 +391,57 @@ npx tauri build --no-bundle
 - Tauri Provider 后端测试。
 - 系统钥匙串 API Key 保存。
 - macOS `.app` 打包和安装。
-- SQLite 记忆元数据、MCP 配置和审计事件落库。
+- SQLite 任务、Usage、运行日志、记忆元数据、MCP 配置、结构化权限审计和审计事件落库。
 - LanceDB sidecar 向量记忆检索。
-- MCP stdio 子进程管理和 HTTP/SSE 探测。
+- MCP JSON-RPC 初始化、工具发现与调用、stdio 断线重连、子进程管理和 HTTP/SSE 探测。
+- SQLite schema migration、任务 checkpoint、完整任务记录、Usage/日志查询与中断恢复读取。
+- 轻量 Agent Job / Step 队列表。
+- Tauri 托管 sidecar 生命周期。
 - 受限 Shell 执行器。
 - Windows NSIS / MSI CI 构建验证。
 
-下一阶段建议：
+下一阶段路线：
 
-- SQLite 任务、Usage 和完整运行日志落库。
-- LanceDB 接入模型 embedding API 与索引维护策略。
-- MCP JSON-RPC 初始化、工具发现、调用和断线重连。
-- Skill 包下载、校验和版本管理。
-- Docker/Podman 沙箱执行器。
-- 真实 Agent 任务队列和中断恢复。
-- 审批弹窗与权限审计日志。
-- macOS / Windows 签名、自动更新和正式安装器。
+1. Runtime 持久化与恢复
+   - 为 SQLite 任务、Usage、运行日志和审计表补齐筛选、导出和保留策略。
+   - 为任务队列补齐恢复决策 UI，允许用户选择继续、回滚或归档。
+   - 将 Agent Job / Step 状态机接入真实执行器。
+
+2. Memory 与向量索引
+   - LanceDB 接入真实模型 embedding API，保留本地确定性向量作为离线 fallback。
+   - 增加索引版本、批量重建、增量更新、删除清理和 embedding 成本记录。
+   - 为记忆命中增加来源解释、置信度衰减和过期策略。
+
+3. MCP 工具运行层
+   - 补齐 MCP JSON-RPC 超时配置、取消请求和更细粒度错误恢复。
+   - 增加工具级权限审批 UI、参数审计、结果脱敏和调用记录落库。
+   - 统一 stdio、HTTP、SSE 会话状态与健康检查。
+
+4. Skill 包管理
+   - 支持 Skill 包下载、Manifest 校验、签名校验和版本锁定。
+   - 增加安装、启用、禁用、升级、回滚和卸载流程。
+   - 建立 Skill 权限声明、兼容性检查和本地缓存策略。
+
+5. 沙箱执行器
+   - 接入 Docker/Podman 执行器，隔离文件系统、网络、环境变量和进程权限。
+   - 为每次执行生成 workspace snapshot、输出目录和可回滚变更记录。
+   - 支持命令白名单、资源限制、超时终止和日志留存。
+
+6. 真实 Agent 队列
+   - 将当前模拟执行升级为真实 Agent 任务队列。
+   - 支持暂停、继续、取消、重试、跳过步骤和中断恢复。
+   - 将 Planner、Context、MCP、Skill、Model Call、Result 串成可观测执行链路。
+
+7. 审批与安全审计
+   - 增加审批弹窗、权限 diff、风险说明和一次性授权范围。
+   - 将用户审批、拒绝、超时、工具调用和敏感操作写入权限审计日志。
+   - 支持按任务、工具、权限、时间范围筛选审计记录。
+
+8. 发布与更新
+   - 完成 macOS / Windows 代码签名、公证、正式安装器和自动更新。
+   - 将 sidecar 构建为可分发资源并随安装包发布。
+   - 增加 release channel、版本迁移、崩溃诊断和安装包校验。
 
 ## License
 
-当前仓库为私有产品原型，暂未声明开源许可证。
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

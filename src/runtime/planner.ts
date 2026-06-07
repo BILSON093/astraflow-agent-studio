@@ -5,7 +5,7 @@ import type {
   Permission,
   PlanStep,
   RiskLevel,
-  TokenPlan,
+  TokenBudgetEstimate,
 } from "../domain/types";
 import { permissions } from "./catalog";
 
@@ -32,12 +32,12 @@ export function estimateTokens(text: string): number {
   return Math.max(128, Math.ceil(text.length / 3.2));
 }
 
-export function estimateTokenPlan(
+export function estimateTokenBudgetEstimate(
   input: string,
   modelPolicy: ModelPolicy,
   softBudgetUsd = 1.5,
   hardBudgetUsd = 3,
-): TokenPlan {
+): TokenBudgetEstimate {
   const inputTokens = estimateTokens(input) + 3_200;
   const outputTokens =
     modelPolicy === "strong_reasoning"
@@ -105,7 +105,7 @@ export function createExecutionPlan(
   hardBudgetUsd?: number,
 ): ExecutionPlan {
   const riskLevel = inferRiskLevel(task.input);
-  const tokenPlan = estimateTokenPlan(task.input, modelPolicy, softBudgetUsd, hardBudgetUsd);
+  const tokenPlan = estimateTokenBudgetEstimate(task.input, modelPolicy, softBudgetUsd, hardBudgetUsd);
   const requiresApproval = riskLevel === "high";
   const isCodingTask = codingPattern.test(task.input);
   const requiredPermissions = getRequiredPermissions(task.input, riskLevel);
@@ -155,7 +155,7 @@ export function createExecutionPlan(
     makeStep(
       4,
       {
-        title: isCodingTask ? "Skill: 代码任务计划" : "Skill: 工作流计划",
+        title: isCodingTask ? "Skill: 代码变更预览" : "Skill: 工作流计划",
         description: isCodingTask
           ? "生成影响文件、修改策略、验证命令和回滚建议。"
           : "选择合适的通用工作流 Skill，并验证所需权限。",
@@ -164,7 +164,7 @@ export function createExecutionPlan(
         tool: isCodingTask ? "coding-plan" : "workflow-orchestrator",
         estimatedTokens: 1_100,
         inputPreview: "task + compact context",
-        outputPreview: isCodingTask ? "代码任务计划已生成。" : "工作流计划已生成。",
+        outputPreview: isCodingTask ? "代码变更预览已生成。" : "工作流计划已生成。",
       },
       requiresApproval,
     ),
@@ -202,8 +202,8 @@ export function createExecutionPlan(
     taskId: task.id,
     steps,
     requiredPermissions,
-    estimatedTokenPlan: tokenPlan,
-    codingPlan: isCodingTask
+    estimatedTokenBudgetEstimate: tokenPlan,
+    codeChangePlan: isCodingTask
       ? {
           affectedAreas: ["任务入口", "上下文编排", "验证命令"],
           strategy: "先读项目结构和关键文件，再生成最小变更，最后运行类型检查与单元测试。",

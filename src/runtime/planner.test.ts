@@ -24,10 +24,10 @@ describe("planner", () => {
     expect(inferRiskLevel("生成一份 token plan 和成本预算")).toBe("low");
   });
 
-  it("creates a coding plan for code related tasks", () => {
+  it("creates a code change preview for code related tasks", () => {
     const plan = createExecutionPlan(makeTask("修复这个前端 bug 并运行测试"), "code_first");
 
-    expect(plan.codingPlan).toBeDefined();
+    expect(plan.codeChangePlan).toBeDefined();
     expect(plan.requiredPermissions.map((permission) => permission.id)).toContain("fs.write");
     expect(plan.steps.length).toBeGreaterThanOrEqual(6);
   });

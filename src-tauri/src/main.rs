@@ -441,11 +441,6 @@ fn skill_enable(payload: Option<Value>) -> Value {
     ok("skill.enable", payload)
 }
 
-#[tauri::command]
-fn usage_report(payload: Option<Value>) -> Value {
-    ok("usage.report", payload)
-}
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -473,10 +468,24 @@ fn main() {
             runtime::mcp_install,
             runtime::mcp_enable,
             runtime::mcp_status,
+            runtime::mcp_list_tools,
+            runtime::mcp_call_tool,
+            runtime::task_checkpoint,
+            runtime::task_restore,
+            runtime::task_list,
+            runtime::usage_report,
+            runtime::usage_list,
+            runtime::runtime_log_append,
+            runtime::runtime_logs_list,
+            runtime::permission_audit_append,
+            runtime::agent_job_upsert,
+            runtime::agent_step_upsert,
+            runtime::agent_jobs_list,
+            runtime::sidecar_status,
+            runtime::sidecar_restart,
             runtime::shell_execute,
             skill_install,
-            skill_enable,
-            usage_report
+            skill_enable
         ])
         .run(tauri::generate_context!())
         .expect("error while running AstraFlow Agent Studio");
